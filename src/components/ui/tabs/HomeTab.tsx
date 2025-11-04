@@ -163,9 +163,9 @@ function PassTicket({
             celoUSDC.chainId
           ]}
           preferredTokens={[
-            { chain: baseUSDC.chainId, address: baseUSDC.token },
-            { chain: arbitrumUSDC.chainId, address: arbitrumUSDC.token },
-            { chain: celoUSDC.chainId, address: celoUSDC.token }
+            { chain: baseUSDC.chainId, address: getAddress(baseUSDC.token) },
+            { chain: arbitrumUSDC.chainId, address: getAddress(arbitrumUSDC.token) },
+            { chain: celoUSDC.chainId, address: getAddress(celoUSDC.token) }
           ]}
           metadata={{
             passType: passId,
