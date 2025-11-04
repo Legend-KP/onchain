@@ -13,7 +13,7 @@
  * ```
  */
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { DaimoPayButton } from "@daimo/pay";
 import { baseUSDC, arbitrumUSDC, celoUSDC } from "@daimo/pay-common";
 import { getAddress } from "viem";
@@ -159,7 +159,7 @@ function PassTicket({
         <DaimoPayButton.Custom
           key={`daimo-pay-${passId}-${formattedPrice}`}
           appId={DAIMO_APP_ID}
-          intent="Purchase"
+          intent={`Purchase ${name}`}
           toChain={baseUSDC.chainId}
           toToken={getAddress(baseUSDC.token)}
           toAddress={recipientAddress}
@@ -188,10 +188,16 @@ function PassTicket({
           onPaymentStarted={(e) => onPaymentStarted?.(passId, e)}
           onPaymentCompleted={(e) => onPaymentCompleted?.(passId, e)}
           onPaymentBounced={(e) => onPaymentBounced?.(passId, e)}
+          onOpen={() => {
+            console.log(`[Daimo Pay Modal Opened] Pass: ${passId}, Price: ${formattedPrice}, Original: ${price}`);
+          }}
         >
           {({ show, hide }) => (
             <button 
-              onClick={show}
+              onClick={() => {
+                console.log(`[Button Clicked] Pass: ${passId}, Sending price: ${formattedPrice} to Daimo Pay`);
+                show();
+              }}
               className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-300 ${
                 isProcessing
                   ? "bg-gray-400 cursor-not-allowed"
