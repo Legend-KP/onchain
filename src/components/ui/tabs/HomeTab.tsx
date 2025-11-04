@@ -5,6 +5,7 @@
  * 
  * This is the default tab that users see when they first open the mini app.
  * It shows three passes: Daily, Weekly, and Monthly with their prices.
+ * Includes Daimo Pay integration for payment processing.
  * 
  * @example
  * ```tsx
@@ -12,14 +13,39 @@
  * ```
  */
 
+import { useState } from "react";
+import { DaimoPayButton } from "@daimo/pay";
+import { baseUSDC, arbitrumUSDC, celoUSDC } from "@daimo/pay-common";
+import { getAddress } from "viem";
+import { 
+  DAIMO_APP_ID, 
+  DAIMO_RECIPIENT_ADDRESS, 
+  DAIMO_REFUND_ADDRESS 
+} from "~/lib/constants";
+
 interface PassProps {
   price: string;
   name: string;
   textColor: string;
   isHighlighted?: boolean;
+  passId: string;
+  onPaymentStarted?: (passId: string, event: any) => void;
+  onPaymentCompleted?: (passId: string, event: any) => void;
+  onPaymentBounced?: (passId: string, event: any) => void;
+  isProcessing?: boolean;
 }
 
-function PassTicket({ price, name, textColor, isHighlighted = false }: PassProps) {
+function PassTicket({ 
+  price, 
+  name, 
+  textColor, 
+  isHighlighted = false,
+  passId,
+  onPaymentStarted,
+  onPaymentCompleted,
+  onPaymentBounced,
+  isProcessing = false
+}: PassProps) {
   const [dollar, cents] = price.split(".");
   
   // Get the actual color value for the text
@@ -32,13 +58,16 @@ function PassTicket({ price, name, textColor, isHighlighted = false }: PassProps
   
   const fillColor = getColorClass();
   
+  // Check if addresses are configured
+  const isConfigured = DAIMO_RECIPIENT_ADDRESS && DAIMO_REFUND_ADDRESS;
+  
   return (
     <div
       className={`relative bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4 shadow-md ${
         isHighlighted ? "border-2 border-orange-400" : ""
       }`}
     >
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between mb-4">
         {/* Price Section */}
         <div className="flex items-baseline">
           <span 
@@ -99,11 +128,94 @@ function PassTicket({ price, name, textColor, isHighlighted = false }: PassProps
         {/* Ticket notch */}
         <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-white dark:bg-gray-900 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
       </div>
+      
+      {/* Payment Button */}
+      {isConfigured ? (
+        <DaimoPayButton
+          appId={DAIMO_APP_ID}
+          intent="Purchase"
+          toChain={baseUSDC.chainId}
+          toToken={getAddress(baseUSDC.token)}
+          toAddress={DAIMO_RECIPIENT_ADDRESS}
+          toUnits={price}
+          refundAddress={DAIMO_REFUND_ADDRESS}
+          preferredChains={[
+            baseUSDC.chainId,
+            arbitrumUSDC.chainId,
+            celoUSDC.chainId
+          ]}
+          preferredTokens={[
+            { chain: baseUSDC.chainId, address: baseUSDC.token },
+            { chain: arbitrumUSDC.chainId, address: arbitrumUSDC.token },
+            { chain: celoUSDC.chainId, address: celoUSDC.token }
+          ]}
+          metadata={{
+            passType: passId,
+            price: price,
+            name: name
+          }}
+          onPaymentStarted={(e) => onPaymentStarted?.(passId, e)}
+          onPaymentCompleted={(e) => onPaymentCompleted?.(passId, e)}
+          onPaymentBounced={(e) => onPaymentBounced?.(passId, e)}
+        >
+          <button 
+            className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-300 ${
+              isProcessing
+                ? "bg-gray-400 cursor-not-allowed"
+                : isHighlighted
+                ? "bg-orange-500 hover:bg-orange-600"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Processing...
+              </span>
+            ) : (
+              `Buy ${name}`
+            )}
+          </button>
+        </DaimoPayButton>
+      ) : (
+        <div className="w-full py-3 px-4 rounded-lg bg-yellow-500 text-white text-center text-sm font-semibold">
+          ⚠️ Please configure DAIMO_RECIPIENT_ADDRESS and DAIMO_REFUND_ADDRESS
+        </div>
+      )}
     </div>
   );
 }
 
 export function HomeTab() {
+  const [processingPass, setProcessingPass] = useState<string | null>(null);
+
+  const handlePaymentStarted = (passId: string, event: any) => {
+    console.log(`Payment started for ${passId}:`, event);
+    setProcessingPass(passId);
+    // You can add toast notifications or other UI feedback here
+  };
+
+  const handlePaymentCompleted = (passId: string, event: any) => {
+    console.log(`Payment completed for ${passId}:`, event);
+    setProcessingPass(null);
+    
+    // TODO: Call your backend API to activate the pass
+    // Example: activatePass(passId, event.paymentId, event.chainId);
+    
+    // Show success message (you can replace with a toast notification)
+    alert(`✅ ${passId.toUpperCase()} PASS ACTIVATED!\n\nPayment ID: ${event.paymentId}`);
+  };
+
+  const handlePaymentBounced = (passId: string, event: any) => {
+    console.error(`Payment bounced for ${passId}:`, event);
+    setProcessingPass(null);
+    alert("❌ Payment failed. Your funds will be refunded automatically.");
+  };
+
   return (
     <div className="px-6 py-4 max-w-md mx-auto">
       <h2 className="text-2xl font-bold text-center mb-6">Passes</h2>
@@ -114,6 +226,11 @@ export function HomeTab() {
           price="1.00"
           name="DAILY PASS"
           textColor="text-white"
+          passId="daily"
+          onPaymentStarted={handlePaymentStarted}
+          onPaymentCompleted={handlePaymentCompleted}
+          onPaymentBounced={handlePaymentBounced}
+          isProcessing={processingPass === "daily"}
         />
         
         {/* Weekly Pass */}
@@ -121,6 +238,11 @@ export function HomeTab() {
           price="3.00"
           name="WEEKLY PASS"
           textColor="text-gray-500 dark:text-gray-400"
+          passId="weekly"
+          onPaymentStarted={handlePaymentStarted}
+          onPaymentCompleted={handlePaymentCompleted}
+          onPaymentBounced={handlePaymentBounced}
+          isProcessing={processingPass === "weekly"}
         />
         
         {/* Monthly Pass - Highlighted */}
@@ -129,7 +251,22 @@ export function HomeTab() {
           name="MONTHLY PASS"
           textColor="text-orange-400"
           isHighlighted={true}
+          passId="monthly"
+          onPaymentStarted={handlePaymentStarted}
+          onPaymentCompleted={handlePaymentCompleted}
+          onPaymentBounced={handlePaymentBounced}
+          isProcessing={processingPass === "monthly"}
         />
+      </div>
+      
+      {/* Network Information */}
+      <div className="mt-6 bg-gray-50 dark:bg-gray-900 rounded-lg p-4 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+          💳 Pay with USDC from Base, Arbitrum, or Celo
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-500">
+          All payments settle in USDC on Base
+        </p>
       </div>
     </div>
   );

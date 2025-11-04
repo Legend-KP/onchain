@@ -133,6 +133,32 @@ export const APP_REQUIRED_CHAINS: string[] = [];
  */
 export const RETURN_URL: string | undefined = undefined;
 
+// --- Daimo Pay Configuration ---
+/**
+ * Daimo Pay App ID for payment processing.
+ * Use "pay-demo" for prototyping, or get a production ID from Daimo.
+ */
+export const DAIMO_APP_ID: string = process.env.NEXT_PUBLIC_DAIMO_APP_ID || "pay-trenchy-FGhJgP9hwghGh9bLxVzawb";
+
+/**
+ * Recipient address where payments will be sent.
+ * This should be a wallet address you control on all supported networks.
+ */
+export const DAIMO_RECIPIENT_ADDRESS: string = process.env.NEXT_PUBLIC_DAIMO_RECIPIENT_ADDRESS || "";
+
+/**
+ * Refund address for failed or bounced payments.
+ * Should be a wallet address you control on all supported networks.
+ * Can be the same as RECIPIENT_ADDRESS.
+ */
+export const DAIMO_REFUND_ADDRESS: string = process.env.NEXT_PUBLIC_DAIMO_REFUND_ADDRESS || process.env.NEXT_PUBLIC_DAIMO_RECIPIENT_ADDRESS || "";
+
+/**
+ * Webhook secret token for verifying Daimo Pay webhook requests.
+ * Get this from Daimo when setting up webhooks.
+ */
+export const DAIMO_WEBHOOK_TOKEN: string = process.env.DAIMO_WEBHOOK_TOKEN || "";
+
 // PLEASE DO NOT UPDATE THIS
 export const SIGNED_KEY_REQUEST_VALIDATOR_EIP_712_DOMAIN = {
   name: 'Farcaster SignedKeyRequestValidator',
