@@ -79,6 +79,13 @@ function PassTicket({
   
   const isConfigured = recipientAddress && refundAddress;
   
+  // Ensure price is properly formatted for Daimo Pay (must be a precise decimal string with 2 decimals)
+  // Example: "1.00", "3.00", "9.00"
+  const formattedPrice = parseFloat(price).toFixed(2);
+  
+  // Debug: Log the price being passed to Daimo Pay
+  console.log(`Pass ${passId} (${name}): UI shows ${price}, Daimo Pay will receive ${formattedPrice}`);
+  
   return (
     <div
       className={`relative bg-gray-100 dark:bg-gray-800 rounded-lg p-4 mb-4 shadow-md ${
@@ -150,13 +157,13 @@ function PassTicket({
       {/* Payment Button */}
       {isConfigured && recipientAddress && refundAddress ? (
         <DaimoPayButton.Custom
-          key={`daimo-pay-${passId}-${price}`}
+          key={`daimo-pay-${passId}-${formattedPrice}`}
           appId={DAIMO_APP_ID}
           intent="Purchase"
           toChain={baseUSDC.chainId}
           toToken={getAddress(baseUSDC.token)}
           toAddress={recipientAddress}
-          toUnits={price}
+          toUnits={formattedPrice}
           refundAddress={refundAddress}
           // Enforce strict order: Base USDC, Arbitrum USDC, Celo USDC (in that exact order)
           // This ensures these tokens appear first regardless of wallet balances
