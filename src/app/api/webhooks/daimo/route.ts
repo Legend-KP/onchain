@@ -160,7 +160,7 @@ async function handlePaymentRefunded(event: any) {
  * @param passType - The type of pass (daily, weekly, monthly)
  * @returns Date when the pass expires
  */
-export function calculateExpiry(passType: string): Date {
+function calculateExpiry(passType: string): Date {
   const now = new Date();
   switch (passType) {
     case 'daily':
