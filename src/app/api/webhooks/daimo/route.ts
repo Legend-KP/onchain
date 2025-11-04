@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
  * Triggered when a user makes a valid payment.
  */
 async function handlePaymentStarted(event: any) {
-  const { paymentId, chainId, payment } = event;
+  const { paymentId, payment } = event;
   const sourceChain = parseInt(payment.source.chainId);
   
   console.log(`Payment started: ${paymentId} from chain ${sourceChain}`);
@@ -98,7 +98,7 @@ async function handlePaymentStarted(event: any) {
  * Triggered when payment recipient has successfully received the payment.
  */
 async function handlePaymentCompleted(event: any) {
-  const { paymentId, chainId, payment } = event;
+  const { paymentId, payment } = event;
   const { passType, price } = payment.metadata || {};
   
   console.log(`✅ Payment completed: ${paymentId}`);
@@ -123,7 +123,7 @@ async function handlePaymentCompleted(event: any) {
  * Triggered if a contract call on the destination chain reverts.
  */
 async function handlePaymentBounced(event: any) {
-  const { paymentId, payment } = event;
+  const { paymentId } = event;
   
   console.error(`❌ Payment bounced: ${paymentId}`);
   
@@ -160,7 +160,7 @@ async function handlePaymentRefunded(event: any) {
  * @param passType - The type of pass (daily, weekly, monthly)
  * @returns Date when the pass expires
  */
-function calculateExpiry(passType: string): Date {
+export function calculateExpiry(passType: string): Date {
   const now = new Date();
   switch (passType) {
     case 'daily':

@@ -58,8 +58,26 @@ function PassTicket({
   
   const fillColor = getColorClass();
   
-  // Check if addresses are configured
-  const isConfigured = DAIMO_RECIPIENT_ADDRESS && DAIMO_REFUND_ADDRESS;
+  // Check if addresses are configured and valid
+  const hasValidAddresses = DAIMO_RECIPIENT_ADDRESS && DAIMO_REFUND_ADDRESS && 
+    DAIMO_RECIPIENT_ADDRESS.startsWith('0x') && DAIMO_REFUND_ADDRESS.startsWith('0x');
+  
+  // Get validated addresses (only if configured)
+  let recipientAddress: `0x${string}` | undefined;
+  let refundAddress: `0x${string}` | undefined;
+  
+  if (hasValidAddresses) {
+    try {
+      recipientAddress = getAddress(DAIMO_RECIPIENT_ADDRESS);
+      refundAddress = getAddress(DAIMO_REFUND_ADDRESS);
+    } catch (error) {
+      console.error('Invalid address format:', error);
+      recipientAddress = undefined;
+      refundAddress = undefined;
+    }
+  }
+  
+  const isConfigured = recipientAddress && refundAddress;
   
   return (
     <div
@@ -130,15 +148,15 @@ function PassTicket({
       </div>
       
       {/* Payment Button */}
-      {isConfigured ? (
+      {isConfigured && recipientAddress && refundAddress ? (
         <DaimoPayButton
           appId={DAIMO_APP_ID}
           intent="Purchase"
           toChain={baseUSDC.chainId}
           toToken={getAddress(baseUSDC.token)}
-          toAddress={DAIMO_RECIPIENT_ADDRESS}
+          toAddress={recipientAddress}
           toUnits={price}
-          refundAddress={DAIMO_REFUND_ADDRESS}
+          refundAddress={refundAddress}
           preferredChains={[
             baseUSDC.chainId,
             arbitrumUSDC.chainId,
