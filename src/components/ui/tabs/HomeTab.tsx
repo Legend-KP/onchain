@@ -158,15 +158,18 @@ function PassTicket({
           toAddress={recipientAddress}
           toUnits={price}
           refundAddress={refundAddress}
+          // Enforce strict order: Base USDC, Arbitrum USDC, Celo USDC (in that exact order)
+          // This ensures these tokens appear first regardless of wallet balances
           preferredChains={[
-            baseUSDC.chainId,
-            arbitrumUSDC.chainId,
-            celoUSDC.chainId
+            baseUSDC.chainId,      // Base (8453) - First priority
+            arbitrumUSDC.chainId, // Arbitrum (42161) - Second priority  
+            celoUSDC.chainId       // Celo (42220) - Third priority
           ]}
           preferredTokens={[
-            { chain: baseUSDC.chainId, address: getAddress(baseUSDC.token) },
-            { chain: arbitrumUSDC.chainId, address: getAddress(arbitrumUSDC.token) },
-            { chain: celoUSDC.chainId, address: getAddress(celoUSDC.token) }
+            // Order matters: These tokens will appear in this exact order first
+            { chain: baseUSDC.chainId, address: getAddress(baseUSDC.token) },      // 1. USDC on Base
+            { chain: arbitrumUSDC.chainId, address: getAddress(arbitrumUSDC.token) }, // 2. USDC on Arbitrum
+            { chain: celoUSDC.chainId, address: getAddress(celoUSDC.token) }       // 3. USDC on Celo
           ]}
           // Hide all payment apps and exchanges, only show wallet and manual address options
           paymentOptions={[]}
