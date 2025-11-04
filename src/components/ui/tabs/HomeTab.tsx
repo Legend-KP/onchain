@@ -150,6 +150,7 @@ function PassTicket({
       {/* Payment Button */}
       {isConfigured && recipientAddress && refundAddress ? (
         <DaimoPayButton.Custom
+          key={`daimo-pay-${passId}-${price}`}
           appId={DAIMO_APP_ID}
           intent="Purchase"
           toChain={baseUSDC.chainId}
