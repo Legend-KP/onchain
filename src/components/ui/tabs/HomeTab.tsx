@@ -167,6 +167,8 @@ function PassTicket({
             { chain: arbitrumUSDC.chainId, address: getAddress(arbitrumUSDC.token) },
             { chain: celoUSDC.chainId, address: getAddress(celoUSDC.token) }
           ]}
+          // Hide all payment apps and exchanges, only show wallet and manual address options
+          paymentOptions={[]}
           metadata={{
             passType: passId,
             price: price,
