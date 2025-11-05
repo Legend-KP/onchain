@@ -207,21 +207,81 @@ function PassTicket({
             
             // Hide non-Farcaster wallet options after modal opens
             // Daimo Pay scans browser for wallets, so we need to hide them with JavaScript
-            setTimeout(() => {
-              // Hide "Pay with another wallet" button
-              const buttons = document.querySelectorAll('button');
-              buttons.forEach((btn) => {
-                const text = btn.textContent?.toLowerCase() || '';
-                if (text.includes('pay with another wallet') || 
-                    text.includes('metamask') || 
-                    text.includes('coinbase') ||
-                    (btn.querySelector('img[alt*="MetaMask" i]')) ||
-                    (btn.querySelector('img[alt*="Coinbase" i]')) ||
-                    (btn.querySelector('img[alt*="wallet" i]') && !text.includes('farcaster'))) {
-                  btn.style.display = 'none';
+            const hideNonFarcasterWallets = () => {
+              // Find all buttons and wallet options
+              const allButtons = document.querySelectorAll('button, [role="button"], a[role="button"]');
+              const allDivs = document.querySelectorAll('div[class*="wallet"], div[class*="Wallet"]');
+              
+              allButtons.forEach((element) => {
+                const text = (element.textContent || '').toLowerCase();
+                const innerHTML = (element.innerHTML || '').toLowerCase();
+                
+                // Check for non-Farcaster wallet indicators
+                const isNonFarcasterWallet = 
+                  text.includes('pay with another wallet') ||
+                  text.includes('metamask') ||
+                  text.includes('coinbase') ||
+                  text.includes('walletconnect') ||
+                  text.includes('rainbow') ||
+                  text.includes('trust wallet') ||
+                  text.includes('ledger') ||
+                  text.includes('trezor') ||
+                  innerHTML.includes('metamask') ||
+                  innerHTML.includes('coinbase') ||
+                  element.querySelector('img[alt*="MetaMask" i]') ||
+                  element.querySelector('img[alt*="Coinbase" i]') ||
+                  element.querySelector('svg[aria-label*="MetaMask" i]') ||
+                  element.querySelector('svg[aria-label*="Coinbase" i]') ||
+                  (element.querySelector('img[alt*="wallet" i]') && !text.includes('farcaster'));
+                
+                if (isNonFarcasterWallet) {
+                  (element as HTMLElement).style.display = 'none';
+                  (element as HTMLElement).style.visibility = 'hidden';
+                  (element as HTMLElement).style.opacity = '0';
+                  (element as HTMLElement).style.height = '0';
+                  (element as HTMLElement).style.padding = '0';
+                  (element as HTMLElement).style.margin = '0';
                 }
               });
-            }, 100);
+              
+              // Hide "or" separators before wallet options
+              const separators = document.querySelectorAll('div, span, p');
+              separators.forEach((el) => {
+                const text = (el.textContent || '').trim().toLowerCase();
+                if (text === 'or' || text === 'or pay with') {
+                  const nextSibling = el.nextElementSibling;
+                  if (nextSibling && (nextSibling.textContent?.toLowerCase().includes('wallet') || 
+                      nextSibling.querySelector('button'))) {
+                    (el as HTMLElement).style.display = 'none';
+                  }
+                }
+              });
+            };
+            
+            // Run immediately and on intervals to catch dynamically added elements
+            setTimeout(hideNonFarcasterWallets, 100);
+            setTimeout(hideNonFarcasterWallets, 300);
+            setTimeout(hideNonFarcasterWallets, 500);
+            setTimeout(hideNonFarcasterWallets, 1000);
+            
+            // Use MutationObserver to catch dynamically added wallet buttons
+            const observer = new MutationObserver((mutations) => {
+              mutations.forEach(() => {
+                hideNonFarcasterWallets();
+              });
+            });
+            
+            // Observe the document body for changes
+            observer.observe(document.body, {
+              childList: true,
+              subtree: true,
+              attributes: false,
+            });
+            
+            // Stop observing after 10 seconds (modal should be fully loaded by then)
+            setTimeout(() => {
+              observer.disconnect();
+            }, 10000);
           }}
           onClose={() => {
             console.log(`[Daimo Pay Modal Closed] Pass: ${passId}`);
