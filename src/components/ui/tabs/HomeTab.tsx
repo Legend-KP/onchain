@@ -180,8 +180,8 @@ function PassTicket({
           ]}
           
           // Keep empty to hide all exchanges/payment apps
-          // Farcaster wallet will be automatically detected and prioritized since it's the first connector
-          // in WagmiProvider and we're in a Farcaster mini app context
+          // Note: Daimo Pay will still show all detected wallets (MetaMask, etc.)
+          // To restrict to only Farcaster wallet, we need to configure DaimoPayProvider
           paymentOptions={[]}
           
           metadata={{
@@ -204,6 +204,24 @@ function PassTicket({
           }}
           onOpen={() => {
             console.log(`[Daimo Pay Modal Opened] Pass: ${passId}, Price: ${formattedPrice}, Original: ${price}`);
+            
+            // Hide non-Farcaster wallet options after modal opens
+            // Daimo Pay scans browser for wallets, so we need to hide them with JavaScript
+            setTimeout(() => {
+              // Hide "Pay with another wallet" button
+              const buttons = document.querySelectorAll('button');
+              buttons.forEach((btn) => {
+                const text = btn.textContent?.toLowerCase() || '';
+                if (text.includes('pay with another wallet') || 
+                    text.includes('metamask') || 
+                    text.includes('coinbase') ||
+                    (btn.querySelector('img[alt*="MetaMask" i]')) ||
+                    (btn.querySelector('img[alt*="Coinbase" i]')) ||
+                    (btn.querySelector('img[alt*="wallet" i]') && !text.includes('farcaster'))) {
+                  btn.style.display = 'none';
+                }
+              });
+            }, 100);
           }}
           onClose={() => {
             console.log(`[Daimo Pay Modal Closed] Pass: ${passId}`);
