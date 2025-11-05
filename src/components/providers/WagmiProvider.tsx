@@ -1,25 +1,26 @@
-import { createConfig, WagmiProvider, http } from "wagmi";
+import { createConfig, WagmiProvider } from "wagmi";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { farcasterFrame } from "@farcaster/miniapp-wagmi-connector";
-import { base, arbitrum, celo } from "wagmi/chains";
+import { getDefaultConfig } from "@daimo/pay";
 import { APP_NAME, APP_ICON_URL, APP_URL } from "~/lib/constants";
 
-// Create a custom config WITHOUT using Daimo's getDefaultConfig
-// This prevents Daimo from injecting its own wallet connectors
-// We only want the Farcaster wallet connector
-// Note: Daimo Pay may still scan the browser for wallets (MetaMask, etc.)
-// This config ensures only Farcaster connector is available in Wagmi
+// Use Daimo Pay's getDefaultConfig to automatically configure all required chains
+// This includes: Arbitrum One, Base, BNB Smart Chain, Celo, Linea Mainnet, 
+// Ethereum, Polygon, OP Mainnet, Scroll, World Chain
+const daimoConfig = getDefaultConfig({
+  appName: APP_NAME,
+  appIcon: APP_ICON_URL,
+  appUrl: APP_URL,
+});
+
+// Merge Daimo's config with our Farcaster connector
+// Farcaster wallet is set as the first connector to prioritize it
 export const config = createConfig({
-  chains: [base, arbitrum, celo], // Only the chains we need for USDC payments
+  ...daimoConfig,
   connectors: [
-    farcasterFrame(), // Farcaster wallet is the ONLY connector
+    farcasterFrame(), // Farcaster wallet is the first/primary connector
+    ...(daimoConfig.connectors || []), // Keep Daimo's default connectors for compatibility
   ],
-  transports: {
-    [base.id]: http(),
-    [arbitrum.id]: http(),
-    [celo.id]: http(),
-  },
-  ssr: false,
 });
 
 const queryClient = new QueryClient();
