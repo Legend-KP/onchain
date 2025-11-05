@@ -173,10 +173,11 @@ function PassTicket({
             celoUSDC.chainId       // Celo (42220) - Third priority
           ]}
           preferredTokens={[
-            // Order matters: These tokens will appear in this exact order first
-            { chain: baseUSDC.chainId, address: getAddress(baseUSDC.token) },      // 1. USDC on Base
-            { chain: arbitrumUSDC.chainId, address: getAddress(arbitrumUSDC.token) }, // 2. USDC on Arbitrum
-            { chain: celoUSDC.chainId, address: getAddress(celoUSDC.token) }       // 3. USDC on Celo
+            // Daimo team solution: Fixed order for all users, regardless of wallet balances
+            // Order: USDC (Base), USDC (Arbitrum), USDC (Celo)
+            { chain: 8453, address: getAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") },      // 1. USDC on Base
+            { chain: 42161, address: getAddress("0xaf88d065e77c8cC2239327C5EDb3A432268e5831") },   // 2. USDC on Arbitrum
+            { chain: 42220, address: getAddress("0xcebA9300f2b948710d2653dD7B07f33A8B32118C") }     // 3. USDC on Celo
           ]}
           // Hide all payment apps and exchanges, only show wallet and manual address options
           paymentOptions={[]}
