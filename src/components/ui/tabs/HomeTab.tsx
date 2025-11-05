@@ -29,7 +29,7 @@ const PAYMENT_TOKENS = [
   {
     name: 'USDC on Base',
     chain: 8453,
-    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913' as `0x${string}`,
     icon: '🔵',
     color: 'bg-blue-500 hover:bg-blue-600',
     usdc: baseUSDC
@@ -37,7 +37,7 @@ const PAYMENT_TOKENS = [
   {
     name: 'USDC on Arbitrum',
     chain: 42161,
-    address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831' as `0x${string}`,
     icon: '🔷',
     color: 'bg-indigo-500 hover:bg-indigo-600',
     usdc: arbitrumUSDC
@@ -45,12 +45,12 @@ const PAYMENT_TOKENS = [
   {
     name: 'USDC on Celo',
     chain: 42220,
-    address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+    address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C' as `0x${string}`,
     icon: '💚',
     color: 'bg-green-500 hover:bg-green-600',
     usdc: celoUSDC
   }
-];
+] as const;
 
 interface PassProps {
   price: string;
@@ -80,9 +80,6 @@ function PassTicket({
   
   // Refs to store Daimo Pay show functions for each token
   const daimoShowFunctions = useRef<{ [key: number]: () => void }>({});
-  
-  // Debug: Log modal state changes
-  console.log(`[PassTicket Render] Pass: ${passId}, Modal Open: ${showTokenModal}, Selected Token: ${selectedTokenIndex}`);
   
   const [dollar, cents] = price.split(".");
   
@@ -122,21 +119,14 @@ function PassTicket({
   
   // Handle token selection - opens Daimo Pay with that specific token
   const handleTokenSelect = (tokenIndex: number) => {
-    console.log(`[Token Selected] Pass: ${passId}, Token Index: ${tokenIndex}, Token: ${PAYMENT_TOKENS[tokenIndex]?.name}`);
     setSelectedTokenIndex(tokenIndex);
     setShowTokenModal(false); // Close custom modal
     
-    // Small delay to ensure modal closes first, then trigger Daimo Pay
-    setTimeout(() => {
-      // Trigger the corresponding Daimo Pay modal
-      const showFunction = daimoShowFunctions.current[tokenIndex];
-      console.log(`[Attempting to open Daimo] Pass: ${passId}, Token Index: ${tokenIndex}, Function exists: ${!!showFunction}`);
-      if (showFunction) {
-        showFunction();
-      } else {
-        console.error(`[Error] Daimo show function not found for token index: ${tokenIndex}`);
-      }
-    }, 100);
+    // Trigger the corresponding Daimo Pay modal
+    const showFunction = daimoShowFunctions.current[tokenIndex];
+    if (showFunction) {
+      showFunction();
+    }
   };
   
   // Hide non-Farcaster wallets when Daimo modal opens
@@ -261,10 +251,7 @@ function PassTicket({
         <>
           {/* Trigger Button - Opens Custom Token Modal */}
           <button 
-            onClick={() => {
-              console.log(`[Buy Button Clicked] Pass: ${passId}, Opening token selection modal`);
-              setShowTokenModal(true);
-            }}
+            onClick={() => setShowTokenModal(true)}
             className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-300 ${
               isProcessing
                 ? "bg-gray-400 cursor-not-allowed"
@@ -289,16 +276,7 @@ function PassTicket({
           
           {/* Custom Token Selection Modal */}
           {showTokenModal && (
-            <div 
-              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
-              style={{ zIndex: 9999 }}
-              onClick={(e) => {
-                // Close modal when clicking backdrop
-                if (e.target === e.currentTarget) {
-                  setShowTokenModal(false);
-                }
-              }}
-            >
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -361,28 +339,24 @@ function PassTicket({
           )}
           
           {/* Three Separate Daimo Pay Instances - One per Token */}
-          {/* CRITICAL: Only render the selected token's instance, or all three but only trigger the selected one */}
           {PAYMENT_TOKENS.map((token, index) => (
             <DaimoPayButton.Custom
-              key={`daimo-${passId}-${token.chain}-${index}`}
+              key={`daimo-${passId}-${token.chain}`}
               appId={DAIMO_APP_ID}
               intent={`Purchase ${name} with ${token.name}`}
-              // CRITICAL: Accept payment in the selected token's chain/token
-              // Daimo will handle bridging/swapping to Base USDC on the backend
-              toChain={token.usdc.chainId} // Selected token's chain (Base, Arbitrum, or Celo)
-              toToken={getAddress(token.usdc.token)} // Selected token's address
+              toChain={baseUSDC.chainId} // Always settles on Base
+              toToken={getAddress(baseUSDC.token)} // USDC on Base
               toAddress={recipientAddress!}
               toUnits={formattedPrice}
               refundAddress={refundAddress!}
               
-              // CRITICAL: Only show this specific token - NO other tokens
+              // CRITICAL: Only show this specific token (enforces strict order)
               preferredTokens={[
-                { chain: token.chain, address: token.address as `0x${string}` } // ONLY this token
+                { chain: token.chain, address: token.address } // Only this token
               ]}
               
-              // CRITICAL: Only show this specific chain - NO other chains
               preferredChains={[
-                token.usdc.chainId // ONLY this chain
+                token.usdc.chainId // Only this chain
               ]}
               
               paymentOptions={[]} // Hide exchanges
@@ -408,96 +382,14 @@ function PassTicket({
               }}
               onOpen={() => {
                 console.log(`[Daimo Pay Opened] Pass: ${passId}, Token: ${token.name}`);
-                
                 // Hide non-Farcaster wallets
                 setTimeout(hideNonFarcasterWallets, 100);
                 setTimeout(hideNonFarcasterWallets, 300);
                 setTimeout(hideNonFarcasterWallets, 500);
                 
-                // CRITICAL: Hide all other tokens (DEGEN, other USDC, etc.)
-                const hideOtherTokens = () => {
-                  // Get the selected token's identifying text
-                  const selectedTokenName = token.name.toLowerCase();
-                  const selectedChainName = token.chain === 8453 ? 'base' : 
-                                           token.chain === 42161 ? 'arbitrum' : 
-                                           token.chain === 42220 ? 'celo' : '';
-                  
-                  // Find all token option elements (cards, buttons, divs that might contain tokens)
-                  const allElements = document.querySelectorAll('div, button, span, [class*="token"], [class*="Token"], [role="button"]');
-                  
-                  allElements.forEach((element) => {
-                    const text = (element.textContent || '').toLowerCase();
-                    const innerHTML = (element.innerHTML || '').toLowerCase();
-                    
-                    // Skip if this element is part of the selected token's section
-                    if (text.includes(selectedTokenName) || text.includes(selectedChainName)) {
-                      return;
-                    }
-                    
-                    // Check if this element explicitly shows other tokens
-                    const isOtherToken = 
-                      // DEGEN token (always hide)
-                      text.includes('degen') ||
-                      text.includes('dgen') ||
-                      // Other tokens (ETH, WETH, etc.)
-                      (text.includes('eth') && !text.includes('usdc')) ||
-                      text.includes('weth') ||
-                      // Other USDC on different chains
-                      (text.includes('usdc') && 
-                       !text.includes(selectedChainName) &&
-                       (text.includes('base') || text.includes('arbitrum') || text.includes('celo'))) ||
-                      // Other chain mentions
-                      ((text.includes('celo') || text.includes('arbitrum') || text.includes('base')) && 
-                       token.chain !== 42220 && token.chain !== 42161 && token.chain !== 8453) ||
-                      // Same checks for innerHTML
-                      innerHTML.includes('degen') ||
-                      innerHTML.includes('dgen') ||
-                      (innerHTML.includes('eth') && !innerHTML.includes('usdc')) ||
-                      innerHTML.includes('weth');
-                    
-                    // Hide if it's another token
-                    if (isOtherToken) {
-                      // Check parent to avoid hiding the entire modal
-                      const parent = element.parentElement;
-                      const parentText = parent?.textContent?.toLowerCase() || '';
-                      
-                      // Don't hide if parent contains the selected token
-                      if (parentText.includes(selectedTokenName) || parentText.includes(selectedChainName)) {
-                        return;
-                      }
-                      
-                      (element as HTMLElement).style.display = 'none';
-                      (element as HTMLElement).style.visibility = 'hidden';
-                      (element as HTMLElement).style.opacity = '0';
-                      (element as HTMLElement).style.height = '0';
-                      (element as HTMLElement).style.padding = '0';
-                      (element as HTMLElement).style.margin = '0';
-                    }
-                  });
-                  
-                  // Hide "More Available" or "↓" indicators
-                  const indicators = document.querySelectorAll('div, span, p');
-                  indicators.forEach((el) => {
-                    const text = (el.textContent || '').toLowerCase();
-                    if (text.includes('more available') || 
-                        text.includes('↓') || 
-                        text.trim() === '↓' ||
-                        text.includes('see more')) {
-                      (el as HTMLElement).style.display = 'none';
-                    }
-                  });
-                };
-                
-                // Run immediately and on intervals
-                setTimeout(hideOtherTokens, 100);
-                setTimeout(hideOtherTokens, 300);
-                setTimeout(hideOtherTokens, 500);
-                setTimeout(hideOtherTokens, 1000);
-                
                 // MutationObserver for dynamic content
                 const observer = new MutationObserver(() => {
                   hideNonFarcasterWallets();
-                  hideOtherTokens();
                 });
                 observer.observe(document.body, {
                   childList: true,
@@ -513,15 +405,9 @@ function PassTicket({
             >
               {({ show, hide }) => {
                 // Store the show function for this token
-                // Use a unique key per pass and token to avoid conflicts
-                const functionKey = `${passId}-${token.chain}`;
-                console.log(`[Daimo Instance Rendered] Pass: ${passId}, Token: ${token.name}, Index: ${index}, Key: ${functionKey}`);
                 daimoShowFunctions.current[index] = show;
-                
-                // Store by chain ID as well for debugging
-                daimoShowFunctions.current[token.chain] = show;
-                
-                return <div style={{ display: 'none' }} />; // Hidden - triggered programmatically
+                // Return a hidden element instead of null (required by Daimo Pay)
+                return <div style={{ display: 'none' }} aria-hidden="true" />;
               }}
             </DaimoPayButton.Custom>
           ))}
