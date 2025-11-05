@@ -80,7 +80,6 @@ function PassTicket({
   const isConfigured = recipientAddress && refundAddress;
   
   // Ensure price is properly formatted for Daimo Pay (must be a precise decimal string with 2 decimals)
-  // Example: "1.00", "3.00", "9.00"
   const formattedPrice = parseFloat(price).toFixed(2);
   
   // Debug: Log the price being passed to Daimo Pay
@@ -157,7 +156,6 @@ function PassTicket({
       {/* Payment Button */}
       {isConfigured && recipientAddress && refundAddress ? (
         <DaimoPayButton.Custom
-          key={`daimo-pay-${passId}-${formattedPrice}`}
           appId={DAIMO_APP_ID}
           intent={`Purchase ${name}`}
           toChain={baseUSDC.chainId}
@@ -165,32 +163,33 @@ function PassTicket({
           toAddress={recipientAddress}
           toUnits={formattedPrice}
           refundAddress={refundAddress}
-          // Enforce strict order: Base USDC, Arbitrum USDC, Celo USDC (in that exact order)
-          // This ensures these tokens appear first regardless of wallet balances
+          
+          // Preferred chains - Base, Arbitrum, Celo
           preferredChains={[
-            baseUSDC.chainId,      // Base (8453) - First priority
-            arbitrumUSDC.chainId, // Arbitrum (42161) - Second priority  
-            celoUSDC.chainId       // Celo (42220) - Third priority
+            8453,      // Base
+            42161,     // Arbitrum
+            42220      // Celo
           ]}
+          
+          // FIXED: Preferred tokens in exact order from Daimo team
+          // Must use exact addresses as provided by Daimo
           preferredTokens={[
-            // Daimo team solution: Fixed order for all users, regardless of wallet balances
-            // Order: USDC (Base), USDC (Arbitrum), USDC (Celo)
-            { chain: 8453, address: getAddress("0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913") },      // 1. USDC on Base
-            { chain: 42161, address: getAddress("0xaf88d065e77c8cC2239327C5EDb3A432268e5831") },   // 2. USDC on Arbitrum
-            { chain: 42220, address: getAddress("0xcebA9300f2b948710d2653dD7B07f33A8B32118C") }     // 3. USDC on Celo
+            { chain: 8453, address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },    // USDC on Base
+            { chain: 42161, address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },  // USDC on Arbitrum
+            { chain: 42220, address: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" }   // USDC on Celo
           ]}
-          // Hide all payment apps and exchanges, only show wallet and manual address options
-          paymentOptions={[]}
+          
           metadata={{
             passType: passId,
             price: price,
             name: name
           }}
+          
           onPaymentStarted={(e) => onPaymentStarted?.(passId, e)}
           onPaymentCompleted={(e) => onPaymentCompleted?.(passId, e)}
           onPaymentBounced={(e) => onPaymentBounced?.(passId, e)}
           onOpen={() => {
-            console.log(`[Daimo Pay Modal Opened] Pass: ${passId}, Price: ${formattedPrice}, Original: ${price}`);
+            console.log(`[Daimo Pay Modal Opened] Pass: ${passId}, Price: ${formattedPrice}`);
           }}
         >
           {({ show, hide }) => (
