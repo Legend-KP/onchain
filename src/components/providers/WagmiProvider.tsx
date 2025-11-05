@@ -14,11 +14,12 @@ const daimoConfig = getDefaultConfig({
 });
 
 // Merge Daimo's config with our Farcaster connector
+// Only use Farcaster wallet connector to ensure it's the primary and only option
 export const config = createConfig({
   ...daimoConfig,
   connectors: [
-    farcasterFrame(),
-    ...(daimoConfig.connectors || []), // Keep Daimo's default connectors if any
+    farcasterFrame(), // Farcaster wallet is the primary and only connector
+    // Daimo's default connectors are excluded to ensure only Farcaster wallet is shown
   ],
 });
 

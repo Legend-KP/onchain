@@ -179,7 +179,9 @@ function PassTicket({
             { chain: 42220, address: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" }   // USDC on Celo
           ]}
           
-          // Keep empty to hide all exchanges/payment apps, only show wallet and manual address
+          // Keep empty to hide all exchanges/payment apps
+          // Farcaster wallet will be automatically detected and prioritized since it's the first connector
+          // in WagmiProvider and we're in a Farcaster mini app context
           paymentOptions={[]}
           
           metadata={{
