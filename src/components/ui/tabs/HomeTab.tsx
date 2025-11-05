@@ -352,7 +352,7 @@ function PassTicket({
               
               // CRITICAL: Only show this specific token (enforces strict order)
               preferredTokens={[
-                { chain: token.chain, address: token.address } // Only this token
+                { chain: token.chain, address: token.address as `0x${string}` } // Only this token
               ]}
               
               preferredChains={[
@@ -406,7 +406,7 @@ function PassTicket({
               {({ show, hide }) => {
                 // Store the show function for this token
                 daimoShowFunctions.current[index] = show;
-                return null; // Hidden - triggered programmatically
+                return <div style={{ display: 'none' }} />; // Hidden - triggered programmatically
               }}
             </DaimoPayButton.Custom>
           ))}
