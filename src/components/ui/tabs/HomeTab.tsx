@@ -35,6 +35,30 @@ interface PassProps {
   isProcessing?: boolean;
 }
 
+"use client";
+
+import { useState } from "react";
+import { DaimoPayButton } from "@daimo/pay";
+import { baseUSDC, arbitrumUSDC, celoUSDC } from "@daimo/pay-common";
+import { getAddress } from "viem";
+import { 
+  DAIMO_APP_ID, 
+  DAIMO_RECIPIENT_ADDRESS, 
+  DAIMO_REFUND_ADDRESS 
+} from "~/lib/constants";
+
+interface PassProps {
+  price: string;
+  name: string;
+  textColor: string;
+  isHighlighted?: boolean;
+  passId: string;
+  onPaymentStarted?: (passId: string, event: any) => void;
+  onPaymentCompleted?: (passId: string, event: any) => void;
+  onPaymentBounced?: (passId: string, event: any) => void;
+  isProcessing?: boolean;
+}
+
 function PassTicket({ 
   price, 
   name, 
@@ -164,32 +188,47 @@ function PassTicket({
           toUnits={formattedPrice}
           refundAddress={refundAddress}
           
-          // Preferred chains - Base, Arbitrum, Celo
+          // Preferred chains - order matters: Base, Arbitrum, Celo
           preferredChains={[
-            8453,      // Base
-            42161,     // Arbitrum
-            42220      // Celo
+            baseUSDC.chainId,      // 8453 - Base
+            arbitrumUSDC.chainId,  // 42161 - Arbitrum
+            celoUSDC.chainId       // 42220 - Celo
           ]}
           
-          // FIXED: Preferred tokens in exact order from Daimo team
-          // Must use exact addresses as provided by Daimo
+          // CRITICAL FIX: Use exact addresses from Daimo team WITHOUT getAddress()
+          // These must be raw strings, not checksummed
           preferredTokens={[
             { chain: 8453, address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },    // USDC on Base
             { chain: 42161, address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },  // USDC on Arbitrum
             { chain: 42220, address: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" }   // USDC on Celo
           ]}
           
+          // Keep empty to hide all exchanges/payment apps, only show wallet and manual address
+          paymentOptions={[]}
+          
           metadata={{
             passType: passId,
-            price: price,
+            price: formattedPrice,  // Use formatted price here too
             name: name
           }}
           
-          onPaymentStarted={(e) => onPaymentStarted?.(passId, e)}
-          onPaymentCompleted={(e) => onPaymentCompleted?.(passId, e)}
-          onPaymentBounced={(e) => onPaymentBounced?.(passId, e)}
+          onPaymentStarted={(e) => {
+            console.log(`[Payment Started] Pass: ${passId}, Event:`, e);
+            onPaymentStarted?.(passId, e);
+          }}
+          onPaymentCompleted={(e) => {
+            console.log(`[Payment Completed] Pass: ${passId}, Event:`, e);
+            onPaymentCompleted?.(passId, e);
+          }}
+          onPaymentBounced={(e) => {
+            console.error(`[Payment Bounced] Pass: ${passId}, Event:`, e);
+            onPaymentBounced?.(passId, e);
+          }}
           onOpen={() => {
-            console.log(`[Daimo Pay Modal Opened] Pass: ${passId}, Price: ${formattedPrice}`);
+            console.log(`[Daimo Pay Modal Opened] Pass: ${passId}, Price: ${formattedPrice}, Original: ${price}`);
+          }}
+          onClose={() => {
+            console.log(`[Daimo Pay Modal Closed] Pass: ${passId}`);
           }}
         >
           {({ show, hide }) => (
@@ -226,6 +265,88 @@ function PassTicket({
           ⚠️ Please configure DAIMO_RECIPIENT_ADDRESS and DAIMO_REFUND_ADDRESS
         </div>
       )}
+    </div>
+  );
+}
+
+export function HomeTab() {
+  const [processingPass, setProcessingPass] = useState<string | null>(null);
+
+  const handlePaymentStarted = (passId: string, event: any) => {
+    console.log(`Payment started for ${passId}:`, event);
+    setProcessingPass(passId);
+    // You can add toast notifications or other UI feedback here
+  };
+
+  const handlePaymentCompleted = (passId: string, event: any) => {
+    console.log(`Payment completed for ${passId}:`, event);
+    setProcessingPass(null);
+    
+    // TODO: Call your backend API to activate the pass
+    // Example: activatePass(passId, event.paymentId, event.chainId);
+    
+    // Show success message (you can replace with a toast notification)
+    alert(`✅ ${passId.toUpperCase()} PASS ACTIVATED!\n\nPayment ID: ${event.paymentId}`);
+  };
+
+  const handlePaymentBounced = (passId: string, event: any) => {
+    console.error(`Payment bounced for ${passId}:`, event);
+    setProcessingPass(null);
+    alert("❌ Payment failed. Your funds will be refunded automatically.");
+  };
+
+  return (
+    <div className="px-6 py-4 max-w-md mx-auto">
+      <h2 className="text-2xl font-bold text-center mb-6">Passes</h2>
+      
+      <div className="space-y-4">
+        {/* Daily Pass */}
+        <PassTicket
+          price="1.00"
+          name="DAILY PASS"
+          textColor="text-white"
+          passId="daily"
+          onPaymentStarted={handlePaymentStarted}
+          onPaymentCompleted={handlePaymentCompleted}
+          onPaymentBounced={handlePaymentBounced}
+          isProcessing={processingPass === "daily"}
+        />
+        
+        {/* Weekly Pass */}
+        <PassTicket
+          price="3.00"
+          name="WEEKLY PASS"
+          textColor="text-gray-500 dark:text-gray-400"
+          passId="weekly"
+          onPaymentStarted={handlePaymentStarted}
+          onPaymentCompleted={handlePaymentCompleted}
+          onPaymentBounced={handlePaymentBounced}
+          isProcessing={processingPass === "weekly"}
+        />
+        
+        {/* Monthly Pass - Highlighted */}
+        <PassTicket
+          price="9.00"
+          name="MONTHLY PASS"
+          textColor="text-orange-400"
+          isHighlighted={true}
+          passId="monthly"
+          onPaymentStarted={handlePaymentStarted}
+          onPaymentCompleted={handlePaymentCompleted}
+          onPaymentBounced={handlePaymentBounced}
+          isProcessing={processingPass === "monthly"}
+        />
+      </div>
+      
+      {/* Network Information */}
+      <div className="mt-6 bg-gray-50 dark:bg-gray-900 rounded-lg p-4 text-center">
+        <p className="text-sm text-gray-600 dark:text-gray-400 mb-2">
+          💳 Pay with USDC from Base, Arbitrum, or Celo
+        </p>
+        <p className="text-xs text-gray-500 dark:text-gray-500">
+          All payments settle in USDC on Base
+        </p>
+      </div>
     </div>
   );
 }
