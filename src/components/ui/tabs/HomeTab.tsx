@@ -13,15 +13,44 @@
  * ```
  */
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { DaimoPayButton } from "@daimo/pay";
 import { baseUSDC, arbitrumUSDC, celoUSDC } from "@daimo/pay-common";
 import { getAddress } from "viem";
+import { X } from "lucide-react";
 import { 
   DAIMO_APP_ID, 
   DAIMO_RECIPIENT_ADDRESS, 
   DAIMO_REFUND_ADDRESS 
 } from "~/lib/constants";
+
+// Token configurations for custom selection
+const PAYMENT_TOKENS = [
+  {
+    name: 'USDC on Base',
+    chain: 8453,
+    address: '0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913',
+    icon: '🔵',
+    color: 'bg-blue-500 hover:bg-blue-600',
+    usdc: baseUSDC
+  },
+  {
+    name: 'USDC on Arbitrum',
+    chain: 42161,
+    address: '0xaf88d065e77c8cC2239327C5EDb3A432268e5831',
+    icon: '🔷',
+    color: 'bg-indigo-500 hover:bg-indigo-600',
+    usdc: arbitrumUSDC
+  },
+  {
+    name: 'USDC on Celo',
+    chain: 42220,
+    address: '0xcebA9300f2b948710d2653dD7B07f33A8B32118C',
+    icon: '💚',
+    color: 'bg-green-500 hover:bg-green-600',
+    usdc: celoUSDC
+  }
+];
 
 interface PassProps {
   price: string;
@@ -46,6 +75,12 @@ function PassTicket({
   onPaymentBounced,
   isProcessing = false
 }: PassProps) {
+  const [showTokenModal, setShowTokenModal] = useState(false);
+  const [selectedTokenIndex, setSelectedTokenIndex] = useState<number | null>(null);
+  
+  // Refs to store Daimo Pay show functions for each token
+  const daimoShowFunctions = useRef<{ [key: number]: () => void }>({});
+  
   const [dollar, cents] = price.split(".");
   
   // Get the actual color value for the text
@@ -82,8 +117,66 @@ function PassTicket({
   // Ensure price is properly formatted for Daimo Pay (must be a precise decimal string with 2 decimals)
   const formattedPrice = parseFloat(price).toFixed(2);
   
-  // Debug: Log the price being passed to Daimo Pay
-  console.log(`Pass ${passId} (${name}): UI shows ${price}, Daimo Pay will receive ${formattedPrice}`);
+  // Handle token selection - opens Daimo Pay with that specific token
+  const handleTokenSelect = (tokenIndex: number) => {
+    setSelectedTokenIndex(tokenIndex);
+    setShowTokenModal(false); // Close custom modal
+    
+    // Trigger the corresponding Daimo Pay modal
+    const showFunction = daimoShowFunctions.current[tokenIndex];
+    if (showFunction) {
+      showFunction();
+    }
+  };
+  
+  // Hide non-Farcaster wallets when Daimo modal opens
+  const hideNonFarcasterWallets = () => {
+    const allButtons = document.querySelectorAll('button, [role="button"], a[role="button"]');
+    
+    allButtons.forEach((element) => {
+      const text = (element.textContent || '').toLowerCase();
+      const innerHTML = (element.innerHTML || '').toLowerCase();
+      
+      const isNonFarcasterWallet = 
+        text.includes('pay with another wallet') ||
+        text.includes('metamask') ||
+        text.includes('coinbase') ||
+        text.includes('walletconnect') ||
+        text.includes('rainbow') ||
+        text.includes('trust wallet') ||
+        text.includes('ledger') ||
+        text.includes('trezor') ||
+        innerHTML.includes('metamask') ||
+        innerHTML.includes('coinbase') ||
+        element.querySelector('img[alt*="MetaMask" i]') ||
+        element.querySelector('img[alt*="Coinbase" i]') ||
+        element.querySelector('svg[aria-label*="MetaMask" i]') ||
+        element.querySelector('svg[aria-label*="Coinbase" i]') ||
+        (element.querySelector('img[alt*="wallet" i]') && !text.includes('farcaster'));
+      
+      if (isNonFarcasterWallet) {
+        (element as HTMLElement).style.display = 'none';
+        (element as HTMLElement).style.visibility = 'hidden';
+        (element as HTMLElement).style.opacity = '0';
+        (element as HTMLElement).style.height = '0';
+        (element as HTMLElement).style.padding = '0';
+        (element as HTMLElement).style.margin = '0';
+      }
+    });
+    
+    // Hide "or" separators
+    const separators = document.querySelectorAll('div, span, p');
+    separators.forEach((el) => {
+      const text = (el.textContent || '').trim().toLowerCase();
+      if (text === 'or' || text === 'or pay with') {
+        const nextSibling = el.nextElementSibling;
+        if (nextSibling && (nextSibling.textContent?.toLowerCase().includes('wallet') || 
+            nextSibling.querySelector('button'))) {
+          (el as HTMLElement).style.display = 'none';
+        }
+      }
+    });
+  };
   
   return (
     <div
@@ -153,169 +246,171 @@ function PassTicket({
         <div className="absolute right-0 top-1/2 -translate-y-1/2 translate-x-1/2 w-4 h-4 bg-white dark:bg-gray-900 rounded-full border-2 border-gray-300 dark:border-gray-600"></div>
       </div>
       
-      {/* Payment Button */}
+      {/* Payment Button - Opens Custom Token Selection Modal */}
       {isConfigured && recipientAddress && refundAddress ? (
-        <DaimoPayButton.Custom
-          appId={DAIMO_APP_ID}
-          intent={`Purchase ${name}`}
-          toChain={baseUSDC.chainId}
-          toToken={getAddress(baseUSDC.token)}
-          toAddress={recipientAddress}
-          toUnits={formattedPrice}
-          refundAddress={refundAddress}
+        <>
+          {/* Trigger Button - Opens Custom Token Modal */}
+          <button 
+            onClick={() => setShowTokenModal(true)}
+            className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-300 ${
+              isProcessing
+                ? "bg-gray-400 cursor-not-allowed"
+                : isHighlighted
+                ? "bg-orange-500 hover:bg-orange-600"
+                : "bg-blue-600 hover:bg-blue-700"
+            }`}
+            disabled={isProcessing}
+          >
+            {isProcessing ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                </svg>
+                Processing...
+              </span>
+            ) : (
+              `Buy ${name}`
+            )}
+          </button>
           
-          // Preferred chains - order matters: Base, Arbitrum, Celo
-          preferredChains={[
-            baseUSDC.chainId,      // 8453 - Base
-            arbitrumUSDC.chainId,  // 42161 - Arbitrum
-            celoUSDC.chainId       // 42220 - Celo
-          ]}
-          
-          // CRITICAL FIX: Use exact addresses from Daimo team WITHOUT getAddress()
-          // These must be raw strings, not checksummed
-          preferredTokens={[
-            { chain: 8453, address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" },    // USDC on Base
-            { chain: 42161, address: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" },  // USDC on Arbitrum
-            { chain: 42220, address: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" }   // USDC on Celo
-          ]}
-          
-          // Keep empty to hide all exchanges/payment apps
-          // Note: Daimo Pay will still show all detected wallets (MetaMask, etc.)
-          // To restrict to only Farcaster wallet, we need to configure DaimoPayProvider
-          paymentOptions={[]}
-          
-          metadata={{
-            passType: passId,
-            price: formattedPrice,  // Use formatted price here too
-            name: name
-          }}
-          
-          onPaymentStarted={(e) => {
-            console.log(`[Payment Started] Pass: ${passId}, Event:`, e);
-            onPaymentStarted?.(passId, e);
-          }}
-          onPaymentCompleted={(e) => {
-            console.log(`[Payment Completed] Pass: ${passId}, Event:`, e);
-            onPaymentCompleted?.(passId, e);
-          }}
-          onPaymentBounced={(e) => {
-            console.error(`[Payment Bounced] Pass: ${passId}, Event:`, e);
-            onPaymentBounced?.(passId, e);
-          }}
-          onOpen={() => {
-            console.log(`[Daimo Pay Modal Opened] Pass: ${passId}, Price: ${formattedPrice}, Original: ${price}`);
-            
-            // Hide non-Farcaster wallet options after modal opens
-            // Daimo Pay scans browser for wallets, so we need to hide them with JavaScript
-            const hideNonFarcasterWallets = () => {
-              // Find all buttons and wallet options
-              const allButtons = document.querySelectorAll('button, [role="button"], a[role="button"]');
-              const allDivs = document.querySelectorAll('div[class*="wallet"], div[class*="Wallet"]');
-              
-              allButtons.forEach((element) => {
-                const text = (element.textContent || '').toLowerCase();
-                const innerHTML = (element.innerHTML || '').toLowerCase();
+          {/* Custom Token Selection Modal */}
+          {showTokenModal && (
+            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+              <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
+                {/* Modal Header */}
+                <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
+                  <div>
+                    <h2 className="text-2xl font-bold text-gray-900 dark:text-white">Purchase {name}</h2>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mt-1">Select your payment token</p>
+                  </div>
+                  <button
+                    onClick={() => setShowTokenModal(false)}
+                    className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-300 transition-colors"
+                  >
+                    <X size={24} />
+                  </button>
+                </div>
                 
-                // Check for non-Farcaster wallet indicators
-                const isNonFarcasterWallet = 
-                  text.includes('pay with another wallet') ||
-                  text.includes('metamask') ||
-                  text.includes('coinbase') ||
-                  text.includes('walletconnect') ||
-                  text.includes('rainbow') ||
-                  text.includes('trust wallet') ||
-                  text.includes('ledger') ||
-                  text.includes('trezor') ||
-                  innerHTML.includes('metamask') ||
-                  innerHTML.includes('coinbase') ||
-                  element.querySelector('img[alt*="MetaMask" i]') ||
-                  element.querySelector('img[alt*="Coinbase" i]') ||
-                  element.querySelector('svg[aria-label*="MetaMask" i]') ||
-                  element.querySelector('svg[aria-label*="Coinbase" i]') ||
-                  (element.querySelector('img[alt*="wallet" i]') && !text.includes('farcaster'));
+                {/* Amount Display */}
+                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 border-b border-gray-200 dark:border-gray-700">
+                  <div className="flex items-center justify-between">
+                    <span className="text-3xl font-bold text-gray-900 dark:text-white">${price}</span>
+                    {recipientAddress && (
+                      <span className="text-sm text-gray-500 dark:text-gray-400">
+                        {recipientAddress.slice(0, 6)}...{recipientAddress.slice(-4)}
+                      </span>
+                    )}
+                  </div>
+                </div>
                 
-                if (isNonFarcasterWallet) {
-                  (element as HTMLElement).style.display = 'none';
-                  (element as HTMLElement).style.visibility = 'hidden';
-                  (element as HTMLElement).style.opacity = '0';
-                  (element as HTMLElement).style.height = '0';
-                  (element as HTMLElement).style.padding = '0';
-                  (element as HTMLElement).style.margin = '0';
-                }
-              });
-              
-              // Hide "or" separators before wallet options
-              const separators = document.querySelectorAll('div, span, p');
-              separators.forEach((el) => {
-                const text = (el.textContent || '').trim().toLowerCase();
-                if (text === 'or' || text === 'or pay with') {
-                  const nextSibling = el.nextElementSibling;
-                  if (nextSibling && (nextSibling.textContent?.toLowerCase().includes('wallet') || 
-                      nextSibling.querySelector('button'))) {
-                    (el as HTMLElement).style.display = 'none';
-                  }
-                }
-              });
-            };
-            
-            // Run immediately and on intervals to catch dynamically added elements
-            setTimeout(hideNonFarcasterWallets, 100);
-            setTimeout(hideNonFarcasterWallets, 300);
-            setTimeout(hideNonFarcasterWallets, 500);
-            setTimeout(hideNonFarcasterWallets, 1000);
-            
-            // Use MutationObserver to catch dynamically added wallet buttons
-            const observer = new MutationObserver((mutations) => {
-              mutations.forEach(() => {
-                hideNonFarcasterWallets();
-              });
-            });
-            
-            // Observe the document body for changes
-            observer.observe(document.body, {
-              childList: true,
-              subtree: true,
-              attributes: false,
-            });
-            
-            // Stop observing after 10 seconds (modal should be fully loaded by then)
-            setTimeout(() => {
-              observer.disconnect();
-            }, 10000);
-          }}
-          onClose={() => {
-            console.log(`[Daimo Pay Modal Closed] Pass: ${passId}`);
-          }}
-        >
-          {({ show, hide }) => (
-            <button 
-              onClick={() => {
-                console.log(`[Button Clicked] Pass: ${passId}, Sending price: ${formattedPrice} to Daimo Pay`);
-                show();
-              }}
-              className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-300 ${
-                isProcessing
-                  ? "bg-gray-400 cursor-not-allowed"
-                  : isHighlighted
-                  ? "bg-orange-500 hover:bg-orange-600"
-                  : "bg-blue-600 hover:bg-blue-700"
-              }`}
-              disabled={isProcessing}
-            >
-              {isProcessing ? (
-                <span className="flex items-center justify-center">
-                  <svg className="animate-spin h-5 w-5 mr-2" viewBox="0 0 24 24">
-                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                  </svg>
-                  Processing...
-                </span>
-              ) : (
-                `Buy ${name}`
-              )}
-            </button>
+                {/* Token Selection Buttons */}
+                <div className="p-6 space-y-3">
+                  {PAYMENT_TOKENS.map((token, index) => (
+                    <button
+                      key={index}
+                      onClick={() => handleTokenSelect(index)}
+                      className={`w-full ${token.color} text-white rounded-xl p-4 transition-all transform hover:scale-105 shadow-md hover:shadow-lg`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center space-x-3">
+                          <span className="text-2xl">{token.icon}</span>
+                          <div className="text-left">
+                            <div className="font-semibold text-lg">Pay with {token.name}</div>
+                            <div className="text-sm opacity-90">{formattedPrice} USDC</div>
+                          </div>
+                        </div>
+                        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                        </svg>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+                
+                {/* Info Footer */}
+                <div className="px-6 py-4 bg-gray-50 dark:bg-gray-900 rounded-b-2xl">
+                  <p className="text-xs text-gray-500 dark:text-gray-400 text-center">
+                    Payments are processed securely via Daimo Pay
+                  </p>
+                </div>
+              </div>
+            </div>
           )}
-        </DaimoPayButton.Custom>
+          
+          {/* Three Separate Daimo Pay Instances - One per Token */}
+          {PAYMENT_TOKENS.map((token, index) => (
+            <DaimoPayButton.Custom
+              key={`daimo-${passId}-${token.chain}`}
+              appId={DAIMO_APP_ID}
+              intent={`Purchase ${name} with ${token.name}`}
+              toChain={baseUSDC.chainId} // Always settles on Base
+              toToken={getAddress(baseUSDC.token)} // USDC on Base
+              toAddress={recipientAddress!}
+              toUnits={formattedPrice}
+              refundAddress={refundAddress!}
+              
+              // CRITICAL: Only show this specific token (enforces strict order)
+              preferredTokens={[
+                { chain: token.chain, address: token.address } // Only this token
+              ]}
+              
+              preferredChains={[
+                token.usdc.chainId // Only this chain
+              ]}
+              
+              paymentOptions={[]} // Hide exchanges
+              
+              metadata={{
+                passType: passId,
+                price: formattedPrice,
+                name: name,
+                selectedToken: token.name
+              }}
+              
+              onPaymentStarted={(e) => {
+                console.log(`[Payment Started] Pass: ${passId}, Token: ${token.name}, Event:`, e);
+                onPaymentStarted?.(passId, e);
+              }}
+              onPaymentCompleted={(e) => {
+                console.log(`[Payment Completed] Pass: ${passId}, Token: ${token.name}, Event:`, e);
+                onPaymentCompleted?.(passId, e);
+              }}
+              onPaymentBounced={(e) => {
+                console.error(`[Payment Bounced] Pass: ${passId}, Token: ${token.name}, Event:`, e);
+                onPaymentBounced?.(passId, e);
+              }}
+              onOpen={() => {
+                console.log(`[Daimo Pay Opened] Pass: ${passId}, Token: ${token.name}`);
+                // Hide non-Farcaster wallets
+                setTimeout(hideNonFarcasterWallets, 100);
+                setTimeout(hideNonFarcasterWallets, 300);
+                setTimeout(hideNonFarcasterWallets, 500);
+                
+                // MutationObserver for dynamic content
+                const observer = new MutationObserver(() => {
+                  hideNonFarcasterWallets();
+                });
+                observer.observe(document.body, {
+                  childList: true,
+                  subtree: true,
+                  attributes: false,
+                });
+                setTimeout(() => observer.disconnect(), 10000);
+              }}
+              onClose={() => {
+                console.log(`[Daimo Pay Closed] Pass: ${passId}, Token: ${token.name}`);
+                setSelectedTokenIndex(null);
+              }}
+            >
+              {({ show, hide }) => {
+                // Store the show function for this token
+                daimoShowFunctions.current[index] = show;
+                return null; // Hidden - triggered programmatically
+              }}
+            </DaimoPayButton.Custom>
+          ))}
+        </>
       ) : (
         <div className="w-full py-3 px-4 rounded-lg bg-yellow-500 text-white text-center text-sm font-semibold">
           ⚠️ Please configure DAIMO_RECIPIENT_ADDRESS and DAIMO_REFUND_ADDRESS
