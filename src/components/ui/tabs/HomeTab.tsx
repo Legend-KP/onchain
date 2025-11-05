@@ -344,19 +344,22 @@ function PassTicket({
               key={`daimo-${passId}-${token.chain}`}
               appId={DAIMO_APP_ID}
               intent={`Purchase ${name} with ${token.name}`}
-              toChain={baseUSDC.chainId} // Always settles on Base
-              toToken={getAddress(baseUSDC.token)} // USDC on Base
+              // CRITICAL: Accept payment in the selected token's chain/token
+              // Daimo will handle bridging/swapping to Base USDC on the backend
+              toChain={token.usdc.chainId} // Selected token's chain (Base, Arbitrum, or Celo)
+              toToken={getAddress(token.usdc.token)} // Selected token's address
               toAddress={recipientAddress!}
               toUnits={formattedPrice}
               refundAddress={refundAddress!}
               
-              // CRITICAL: Only show this specific token (enforces strict order)
+              // CRITICAL: Only show this specific token - NO other tokens
               preferredTokens={[
-                { chain: token.chain, address: token.address as `0x${string}` } // Only this token
+                { chain: token.chain, address: token.address as `0x${string}` } // ONLY this token
               ]}
               
+              // CRITICAL: Only show this specific chain - NO other chains
               preferredChains={[
-                token.usdc.chainId // Only this chain
+                token.usdc.chainId // ONLY this chain
               ]}
               
               paymentOptions={[]} // Hide exchanges
@@ -382,14 +385,96 @@ function PassTicket({
               }}
               onOpen={() => {
                 console.log(`[Daimo Pay Opened] Pass: ${passId}, Token: ${token.name}`);
+                
                 // Hide non-Farcaster wallets
                 setTimeout(hideNonFarcasterWallets, 100);
                 setTimeout(hideNonFarcasterWallets, 300);
                 setTimeout(hideNonFarcasterWallets, 500);
                 
+                // CRITICAL: Hide all other tokens (DEGEN, other USDC, etc.)
+                const hideOtherTokens = () => {
+                  // Get the selected token's identifying text
+                  const selectedTokenName = token.name.toLowerCase();
+                  const selectedChainName = token.chain === 8453 ? 'base' : 
+                                           token.chain === 42161 ? 'arbitrum' : 
+                                           token.chain === 42220 ? 'celo' : '';
+                  
+                  // Find all token option elements (cards, buttons, divs that might contain tokens)
+                  const allElements = document.querySelectorAll('div, button, span, [class*="token"], [class*="Token"], [role="button"]');
+                  
+                  allElements.forEach((element) => {
+                    const text = (element.textContent || '').toLowerCase();
+                    const innerHTML = (element.innerHTML || '').toLowerCase();
+                    
+                    // Skip if this element is part of the selected token's section
+                    if (text.includes(selectedTokenName) || text.includes(selectedChainName)) {
+                      return;
+                    }
+                    
+                    // Check if this element explicitly shows other tokens
+                    const isOtherToken = 
+                      // DEGEN token (always hide)
+                      text.includes('degen') ||
+                      text.includes('dgen') ||
+                      // Other tokens (ETH, WETH, etc.)
+                      (text.includes('eth') && !text.includes('usdc')) ||
+                      text.includes('weth') ||
+                      // Other USDC on different chains
+                      (text.includes('usdc') && 
+                       !text.includes(selectedChainName) &&
+                       (text.includes('base') || text.includes('arbitrum') || text.includes('celo'))) ||
+                      // Other chain mentions
+                      ((text.includes('celo') || text.includes('arbitrum') || text.includes('base')) && 
+                       token.chain !== 42220 && token.chain !== 42161 && token.chain !== 8453) ||
+                      // Same checks for innerHTML
+                      innerHTML.includes('degen') ||
+                      innerHTML.includes('dgen') ||
+                      (innerHTML.includes('eth') && !innerHTML.includes('usdc')) ||
+                      innerHTML.includes('weth');
+                    
+                    // Hide if it's another token
+                    if (isOtherToken) {
+                      // Check parent to avoid hiding the entire modal
+                      const parent = element.parentElement;
+                      const parentText = parent?.textContent?.toLowerCase() || '';
+                      
+                      // Don't hide if parent contains the selected token
+                      if (parentText.includes(selectedTokenName) || parentText.includes(selectedChainName)) {
+                        return;
+                      }
+                      
+                      (element as HTMLElement).style.display = 'none';
+                      (element as HTMLElement).style.visibility = 'hidden';
+                      (element as HTMLElement).style.opacity = '0';
+                      (element as HTMLElement).style.height = '0';
+                      (element as HTMLElement).style.padding = '0';
+                      (element as HTMLElement).style.margin = '0';
+                    }
+                  });
+                  
+                  // Hide "More Available" or "↓" indicators
+                  const indicators = document.querySelectorAll('div, span, p');
+                  indicators.forEach((el) => {
+                    const text = (el.textContent || '').toLowerCase();
+                    if (text.includes('more available') || 
+                        text.includes('↓') || 
+                        text.trim() === '↓' ||
+                        text.includes('see more')) {
+                      (el as HTMLElement).style.display = 'none';
+                    }
+                  });
+                };
+                
+                // Run immediately and on intervals
+                setTimeout(hideOtherTokens, 100);
+                setTimeout(hideOtherTokens, 300);
+                setTimeout(hideOtherTokens, 500);
+                setTimeout(hideOtherTokens, 1000);
+                
                 // MutationObserver for dynamic content
                 const observer = new MutationObserver(() => {
                   hideNonFarcasterWallets();
+                  hideOtherTokens();
                 });
                 observer.observe(document.body, {
                   childList: true,
