@@ -81,6 +81,9 @@ function PassTicket({
   // Refs to store Daimo Pay show functions for each token
   const daimoShowFunctions = useRef<{ [key: number]: () => void }>({});
   
+  // Debug: Log modal state changes
+  console.log(`[PassTicket Render] Pass: ${passId}, Modal Open: ${showTokenModal}, Selected Token: ${selectedTokenIndex}`);
+  
   const [dollar, cents] = price.split(".");
   
   // Get the actual color value for the text
@@ -119,14 +122,21 @@ function PassTicket({
   
   // Handle token selection - opens Daimo Pay with that specific token
   const handleTokenSelect = (tokenIndex: number) => {
+    console.log(`[Token Selected] Pass: ${passId}, Token Index: ${tokenIndex}, Token: ${PAYMENT_TOKENS[tokenIndex]?.name}`);
     setSelectedTokenIndex(tokenIndex);
     setShowTokenModal(false); // Close custom modal
     
-    // Trigger the corresponding Daimo Pay modal
-    const showFunction = daimoShowFunctions.current[tokenIndex];
-    if (showFunction) {
-      showFunction();
-    }
+    // Small delay to ensure modal closes first, then trigger Daimo Pay
+    setTimeout(() => {
+      // Trigger the corresponding Daimo Pay modal
+      const showFunction = daimoShowFunctions.current[tokenIndex];
+      console.log(`[Attempting to open Daimo] Pass: ${passId}, Token Index: ${tokenIndex}, Function exists: ${!!showFunction}`);
+      if (showFunction) {
+        showFunction();
+      } else {
+        console.error(`[Error] Daimo show function not found for token index: ${tokenIndex}`);
+      }
+    }, 100);
   };
   
   // Hide non-Farcaster wallets when Daimo modal opens
@@ -251,7 +261,10 @@ function PassTicket({
         <>
           {/* Trigger Button - Opens Custom Token Modal */}
           <button 
-            onClick={() => setShowTokenModal(true)}
+            onClick={() => {
+              console.log(`[Buy Button Clicked] Pass: ${passId}, Opening token selection modal`);
+              setShowTokenModal(true);
+            }}
             className={`w-full py-3 px-4 rounded-lg font-semibold text-white transition-all duration-300 ${
               isProcessing
                 ? "bg-gray-400 cursor-not-allowed"
@@ -276,7 +289,16 @@ function PassTicket({
           
           {/* Custom Token Selection Modal */}
           {showTokenModal && (
-            <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4 z-50">
+            <div 
+              className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4"
+              style={{ zIndex: 9999 }}
+              onClick={(e) => {
+                // Close modal when clicking backdrop
+                if (e.target === e.currentTarget) {
+                  setShowTokenModal(false);
+                }
+              }}
+            >
               <div className="bg-white dark:bg-gray-800 rounded-2xl shadow-2xl max-w-md w-full">
                 {/* Modal Header */}
                 <div className="flex items-center justify-between p-6 border-b border-gray-200 dark:border-gray-700">
@@ -339,9 +361,10 @@ function PassTicket({
           )}
           
           {/* Three Separate Daimo Pay Instances - One per Token */}
+          {/* CRITICAL: Only render the selected token's instance, or all three but only trigger the selected one */}
           {PAYMENT_TOKENS.map((token, index) => (
             <DaimoPayButton.Custom
-              key={`daimo-${passId}-${token.chain}`}
+              key={`daimo-${passId}-${token.chain}-${index}`}
               appId={DAIMO_APP_ID}
               intent={`Purchase ${name} with ${token.name}`}
               // CRITICAL: Accept payment in the selected token's chain/token
@@ -490,7 +513,14 @@ function PassTicket({
             >
               {({ show, hide }) => {
                 // Store the show function for this token
+                // Use a unique key per pass and token to avoid conflicts
+                const functionKey = `${passId}-${token.chain}`;
+                console.log(`[Daimo Instance Rendered] Pass: ${passId}, Token: ${token.name}, Index: ${index}, Key: ${functionKey}`);
                 daimoShowFunctions.current[index] = show;
+                
+                // Store by chain ID as well for debugging
+                daimoShowFunctions.current[token.chain] = show;
+                
                 return <div style={{ display: 'none' }} />; // Hidden - triggered programmatically
               }}
             </DaimoPayButton.Custom>
