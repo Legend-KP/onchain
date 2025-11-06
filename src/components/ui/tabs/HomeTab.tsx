@@ -15,7 +15,7 @@
 
 import { useState, useEffect } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
-import { parseUnits, formatUnits } from "viem";
+import { parseUnits } from "viem";
 import { 
   PAYMENT_RECIPIENT_ADDRESS, 
   USDC_ADDRESSES, 
@@ -325,7 +325,7 @@ export function HomeTab() {
   const [pendingTransaction, setPendingTransaction] = useState<{
     chain: ChainKey;
     usdcAddress: `0x${string}`;
-    amount: string;
+    amount: string; // Stored as string, will be converted to BigInt when used
     displayPrice: string;
   } | null>(null);
 
@@ -385,12 +385,15 @@ export function HomeTab() {
       };
       
       try {
+        // Parse amount with 6 decimals (USDC standard)
+        const amount = parseUnits(pendingTransaction.displayPrice, 6);
+        
         // Use writeContract - better recognized by Farcaster wallet
         writeContract({
           address: pendingTransaction.usdcAddress,
           abi: ERC20_ABI,
           functionName: "transfer",
-          args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(pendingTransaction.amount)],
+          args: [PAYMENT_RECIPIENT_ADDRESS, amount],
           // Note: Farcaster wallet may show "No state changes detected" 
           // because it can't simulate ERC20 transfers yet, but transaction will work correctly
         });
@@ -422,25 +425,25 @@ export function HomeTab() {
     setShowChainModal(false);
     setProcessingPass(selectedPass);
 
-    try {
-      // Get USDC contract address for selected chain
-      const usdcAddress = USDC_ADDRESSES[chain];
-      const amount = PASS_PRICES[selectedPass];
-      const targetChain = SUPPORTED_CHAINS[chain];
-      setTargetChainId(targetChain);
+      try {
+        // Get USDC contract address for selected chain
+        const usdcAddress = USDC_ADDRESSES[chain];
+        const displayPrice = PASS_DISPLAY_PRICES[selectedPass];
+        // Parse amount with 6 decimals (USDC standard)
+        const amount = parseUnits(displayPrice, 6); // e.g., "1.00" -> 1000000n
+        const targetChain = SUPPORTED_CHAINS[chain];
+        setTargetChainId(targetChain);
 
-      const displayPrice = PASS_DISPLAY_PRICES[selectedPass];
-
-      console.log("Initiating payment:", {
-        pass: selectedPass,
-        chain,
-        usdcAddress,
-        amount,
-        displayPrice,
-        recipient: PAYMENT_RECIPIENT_ADDRESS,
-        targetChainId: targetChain,
-        currentChainId: chainId,
-      });
+        console.log("Initiating payment:", {
+          pass: selectedPass,
+          chain,
+          usdcAddress,
+          amount: amount.toString(),
+          displayPrice,
+          recipient: PAYMENT_RECIPIENT_ADDRESS,
+          targetChainId: targetChain,
+          currentChainId: chainId,
+        });
 
       // Switch chain if needed - useEffect will execute transaction after switch
       if (chainId !== targetChain) {
@@ -450,7 +453,7 @@ export function HomeTab() {
           setPendingTransaction({
             chain,
             usdcAddress,
-            amount,
+            amount: amount.toString(), // Convert BigInt to string for storage
             displayPrice,
           });
           
@@ -471,7 +474,7 @@ export function HomeTab() {
         console.log("Executing USDC transfer:", {
           to: usdcAddress,
           amount: displayPrice,
-          amountRaw: amount,
+          amountRaw: amount.toString(),
           recipient: PAYMENT_RECIPIENT_ADDRESS,
           chain: chain.toUpperCase(),
         });
@@ -496,7 +499,7 @@ export function HomeTab() {
             address: usdcAddress,
             abi: ERC20_ABI,
             functionName: "transfer",
-            args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
+            args: [PAYMENT_RECIPIENT_ADDRESS, amount], // amount is already BigInt from parseUnits
           });
         } catch (err) {
           console.error("Transaction execution error:", err);
