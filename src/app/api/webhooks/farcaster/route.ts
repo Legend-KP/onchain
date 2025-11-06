@@ -78,20 +78,20 @@ export async function POST(req: NextRequest) {
  * Helper function to activate a pass (placeholder for your implementation)
  */
 async function _activatePass(
-  userAddress: string,
-  passType: string,
-  transactionHash: string,
-  chainId: number
+  _userAddress: string,
+  _passType: string,
+  _transactionHash: string,
+  _chainId: number
 ) {
   // TODO: Implement your pass activation logic
   // Example:
   // await db.passes.create({
-  //   userAddress,
-  //   passType,
-  //   transactionHash,
-  //   chainId,
+  //   userAddress: _userAddress,
+  //   passType: _passType,
+  //   transactionHash: _transactionHash,
+  //   chainId: _chainId,
   //   activatedAt: new Date(),
-  //   expiresAt: calculateExpiry(passType)
+  //   expiresAt: calculateExpiry(_passType)
   // });
 }
 

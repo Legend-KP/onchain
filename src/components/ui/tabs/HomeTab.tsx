@@ -264,7 +264,7 @@ function ChainSelectorModal({
         {/* Pass Info */}
         <div className="mb-6 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
           <p className="text-sm text-gray-600 dark:text-gray-400">
-            You're purchasing:
+            You&apos;re purchasing:
           </p>
           <p className="text-lg font-bold text-gray-900 dark:text-white">
             {passType.toUpperCase()} PASS
@@ -317,8 +317,8 @@ function ChainSelectorModal({
 
 export function HomeTab() {
   const { address, isConnected, chain } = useAccount();
-  const { writeContract, data: hash, isPending, error } = useWriteContract();
-  const { isLoading: isConfirming, isSuccess: isConfirmed } =
+  const { writeContract, data: hash, error } = useWriteContract();
+  const { isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({ hash });
   const { switchChain } = useSwitchChain();
   
