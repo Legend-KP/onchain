@@ -172,7 +172,7 @@ export function WalletTab() {
     const isInFarcasterClient = typeof window !== 'undefined' && 
       (window.location.href.includes('warpcast.com') || 
        window.location.href.includes('farcaster') ||
-       window.ethereum?.isFarcaster ||
+       (typeof (window as any).ethereum !== 'undefined' && (window as any).ethereum?.isFarcaster) ||
        context?.client);
     
     if (context?.user?.fid && !isConnected && connectors.length > 0 && isInFarcasterClient) {
