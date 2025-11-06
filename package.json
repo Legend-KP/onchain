@@ -41,8 +41,6 @@
     "ansi-styles": "6.2.1"
   },
   "dependencies": {
-    "@daimo/pay": "^1.18.3",
-    "@daimo/pay-common": "^1.18.3",
     "@farcaster/auth-client": ">=0.3.0 <1.0.0",
     "@farcaster/frame-sdk": "^0.1.12",
     "@farcaster/mini-app-solana": ">=0.0.17 <1.0.0",
