@@ -372,15 +372,34 @@ export function HomeTab() {
     ) {
       console.log("Chain switch confirmed, executing transaction:", pendingTransaction);
       
-      // Use writeContract - better recognized by Farcaster wallet
-      writeContract({
-        address: pendingTransaction.usdcAddress,
-        abi: ERC20_ABI,
-        functionName: "transfer",
-        args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(pendingTransaction.amount)],
-        // Note: Farcaster wallet may show "No state changes detected" 
-        // because it can't simulate ERC20 transfers yet, but transaction will work correctly
-      });
+      // Suppress MetaMask detection errors (they're harmless - we only use Farcaster)
+      const originalError = console.error;
+      console.error = (...args) => {
+        const errorMsg = args[0]?.toString() || '';
+        // Suppress MetaMask-related errors (they're from browser extensions, not our code)
+        if (errorMsg.includes('MetaMask') || errorMsg.includes('metamask')) {
+          console.warn('MetaMask detection error (ignored - using Farcaster wallet):', ...args);
+          return;
+        }
+        originalError(...args);
+      };
+      
+      try {
+        // Use writeContract - better recognized by Farcaster wallet
+        writeContract({
+          address: pendingTransaction.usdcAddress,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(pendingTransaction.amount)],
+          // Note: Farcaster wallet may show "No state changes detected" 
+          // because it can't simulate ERC20 transfers yet, but transaction will work correctly
+        });
+      } catch (err) {
+        console.error("Transaction execution error:", err);
+      } finally {
+        // Restore original console.error
+        console.error = originalError;
+      }
       
       // Clear pending transaction
       setPendingTransaction(null);
@@ -457,15 +476,34 @@ export function HomeTab() {
           chain: chain.toUpperCase(),
         });
 
-        // Use writeContract - better recognized by Farcaster wallet
-        // Note: Farcaster wallet may show "No state changes detected" 
-        // because it can't simulate ERC20 transfers yet, but transaction will work correctly
-        writeContract({
-          address: usdcAddress,
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
-        });
+        // Suppress MetaMask detection errors (they're harmless - we only use Farcaster)
+        const originalError = console.error;
+        console.error = (...args) => {
+          const errorMsg = args[0]?.toString() || '';
+          // Suppress MetaMask-related errors (they're from browser extensions, not our code)
+          if (errorMsg.includes('MetaMask') || errorMsg.includes('metamask')) {
+            console.warn('MetaMask detection error (ignored - using Farcaster wallet):', ...args);
+            return;
+          }
+          originalError(...args);
+        };
+        
+        try {
+          // Use writeContract - better recognized by Farcaster wallet
+          // Note: Farcaster wallet may show "No state changes detected" 
+          // because it can't simulate ERC20 transfers yet, but transaction will work correctly
+          writeContract({
+            address: usdcAddress,
+            abi: ERC20_ABI,
+            functionName: "transfer",
+            args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
+          });
+        } catch (err) {
+          console.error("Transaction execution error:", err);
+        } finally {
+          // Restore original console.error
+          console.error = originalError;
+        }
       }
     } catch (err) {
       console.error("Payment error:", err);
