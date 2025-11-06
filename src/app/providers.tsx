@@ -12,17 +12,16 @@ const WagmiProvider = dynamic(
   }
 );
 
-// Safely import DaimoPayProvider - handle errors gracefully
-const DaimoPayProvider = dynamic(
-  () => import('@daimo/pay').then(mod => mod.DaimoPayProvider).catch(() => {
-    // Return a fallback component if Daimo fails to load
-    return ({ children }: { children: React.ReactNode }) => <>{children}</>;
-  }),
-  {
-    ssr: false,
-    loading: () => null,
-  }
-);
+// DAIMO PROVIDER (HIDDEN - KEPT FOR REFERENCE)
+// Daimo is not required since we're using direct USDC transfers
+// If you need Daimo in the future, uncomment and fix the import path:
+// const DaimoPayProvider = dynamic(
+//   () => import('@daimo/pay').then(mod => mod.DaimoPayProvider),
+//   { ssr: false, loading: () => null }
+// );
+
+// Fallback component - Daimo is optional
+const DaimoPayProviderFallback = ({ children }: { children: React.ReactNode }) => <>{children}</>;
 
 export function Providers({
   children,
@@ -40,9 +39,10 @@ export function Providers({
         returnUrl={RETURN_URL}
       >
         <SafeFarcasterSolanaProvider endpoint={solanaEndpoint}>
-          <DaimoPayProvider mode="auto" theme="auto">
+          {/* DaimoPayProvider is optional - kept for reference but not required */}
+          <DaimoPayProviderFallback>
             {children}
-          </DaimoPayProvider>
+          </DaimoPayProviderFallback>
         </SafeFarcasterSolanaProvider>
       </MiniAppProvider>
     </WagmiProvider>
