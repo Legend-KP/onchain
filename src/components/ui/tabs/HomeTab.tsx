@@ -14,7 +14,7 @@
  */
 
 import { useState, useEffect } from "react";
-import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
+import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain, useSendTransaction } from "wagmi";
 import { encodeFunctionData } from "viem";
 import { 
   PAYMENT_RECIPIENT_ADDRESS, 
@@ -293,9 +293,14 @@ function ChainSelectorModal({
         </div>
 
         {/* Info Text */}
-        <p className="mt-6 text-xs text-center text-gray-500 dark:text-gray-400">
-          Payment will be sent to your Farcaster wallet for confirmation
-        </p>
+        <div className="mt-6 space-y-2">
+          <p className="text-xs text-center text-gray-500 dark:text-gray-400">
+            Payment will be sent to your Farcaster wallet for confirmation
+          </p>
+          <p className="text-xs text-center text-blue-600 dark:text-blue-400 font-semibold">
+            💡 Amount: ${price} USDC will be transferred (encoded in transaction data)
+          </p>
+        </div>
       </div>
     </div>
   );
@@ -305,8 +310,9 @@ export function HomeTab() {
   const { address, isConnected, chainId } = useAccount();
   const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
+  const { sendTransaction: sendRawTransaction, data: rawHash, isPending: isRawPending, error: rawError } = useSendTransaction();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
-    useWaitForTransactionReceipt({ hash });
+    useWaitForTransactionReceipt({ hash: hash || rawHash });
 
   const [selectedPass, setSelectedPass] = useState<PassType | null>(null);
   const [showChainModal, setShowChainModal] = useState(false);
@@ -323,34 +329,36 @@ export function HomeTab() {
 
   // Handle transaction confirmation
   useEffect(() => {
-    if (isConfirmed && processingPass && hash && !hasShownSuccess) {
-      console.log("Payment confirmed!", { hash, pass: processingPass });
-      alert(`✅ ${processingPass.toUpperCase()} PASS ACTIVATED!\n\nTransaction: ${hash}`);
+    const txHash = hash || rawHash;
+    if (isConfirmed && processingPass && txHash && !hasShownSuccess) {
+      console.log("Payment confirmed!", { hash: txHash, pass: processingPass });
+      alert(`✅ ${processingPass.toUpperCase()} PASS ACTIVATED!\n\nTransaction: ${txHash}`);
       setProcessingPass(null);
       setSelectedPass(null);
       setHasShownSuccess(true);
     }
-  }, [isConfirmed, processingPass, hash, hasShownSuccess]);
+  }, [isConfirmed, processingPass, hash, rawHash, hasShownSuccess]);
 
   // Handle errors
   useEffect(() => {
-    if (error && processingPass && !hasShownError) {
-      console.error("Transaction error:", error);
-      alert(`❌ Payment failed: ${error.message}`);
+    const txError = error || rawError;
+    if (txError && processingPass && !hasShownError) {
+      console.error("Transaction error:", txError);
+      alert(`❌ Payment failed: ${txError.message}`);
       setProcessingPass(null);
       setTargetChainId(null);
       setPendingTransaction(null);
       setHasShownError(true);
     }
-  }, [error, processingPass, hasShownError]);
+  }, [error, rawError, processingPass, hasShownError]);
 
   // Reset success/error flags when starting new transaction
   useEffect(() => {
-    if (!hash) {
+    if (!hash && !rawHash) {
       setHasShownSuccess(false);
       setHasShownError(false);
     }
-  }, [hash]);
+  }, [hash, rawHash]);
 
   // Execute transaction after chain switch completes
   useEffect(() => {
@@ -359,23 +367,32 @@ export function HomeTab() {
       targetChainId &&
       chainId === targetChainId &&
       !isPending &&
+      !isRawPending &&
       !hash &&
+      !rawHash &&
       !isSwitchingChain
     ) {
       console.log("Chain switch confirmed, executing transaction:", pendingTransaction);
       
-      // Execute USDC transfer now that we're on the correct chain
-      writeContract({
-        address: pendingTransaction.usdcAddress,
+      // Encode the transaction data
+      const encodedData = encodeFunctionData({
         abi: ERC20_ABI,
         functionName: "transfer",
         args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(pendingTransaction.amount)],
       });
       
+      // Use sendTransaction with encoded data - this might show amount better in some wallets
+      sendRawTransaction({
+        to: pendingTransaction.usdcAddress,
+        data: encodedData,
+        // Note: value is 0 because we're transferring ERC20, not native token
+        // The amount is encoded in the data field
+      });
+      
       // Clear pending transaction
       setPendingTransaction(null);
     }
-  }, [chainId, targetChainId, pendingTransaction, isPending, hash, isSwitchingChain, writeContract]);
+  }, [chainId, targetChainId, pendingTransaction, isPending, isRawPending, hash, rawHash, isSwitchingChain, sendRawTransaction]);
 
   const handleBuyClick = (passId: PassType) => {
     if (!isConnected) {
@@ -439,7 +456,7 @@ export function HomeTab() {
         // Already on correct chain - execute transaction immediately
         console.log("Already on correct chain, executing transaction immediately");
         
-        // Encode the function data for better wallet display
+        // Encode the transaction data
         const encodedData = encodeFunctionData({
           abi: ERC20_ABI,
           functionName: "transfer",
@@ -453,12 +470,13 @@ export function HomeTab() {
           chain: chain.toUpperCase(),
         });
 
-        // Execute USDC transfer immediately
-        writeContract({
-          address: usdcAddress,
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
+        // Use sendTransaction with encoded data - this might show amount better in some wallets
+        // The amount is encoded in the data field as part of the ERC20 transfer function call
+        sendRawTransaction({
+          to: usdcAddress,
+          data: encodedData,
+          // Note: value is 0 because we're transferring ERC20 token, not native ETH
+          // The USDC amount is encoded in the data field
         });
       }
     } catch (err) {
@@ -469,7 +487,7 @@ export function HomeTab() {
     }
   };
 
-  const isProcessing = isPending || isConfirming || processingPass !== null;
+  const isProcessing = isPending || isRawPending || isConfirming || processingPass !== null;
 
   return (
     <div className="px-6 py-4 max-w-md mx-auto">
