@@ -15,6 +15,7 @@
 
 import { useState, useEffect } from "react";
 import { useAccount, useWriteContract, useWaitForTransactionReceipt, useSwitchChain } from "wagmi";
+import { encodeFunctionData } from "viem";
 import { 
   PAYMENT_RECIPIENT_ADDRESS, 
   USDC_ADDRESSES, 
@@ -302,7 +303,7 @@ function ChainSelectorModal({
 
 export function HomeTab() {
   const { address, isConnected, chainId } = useAccount();
-  const { switchChain } = useSwitchChain();
+  const { switchChain, isPending: isSwitchingChain } = useSwitchChain();
   const { writeContract, data: hash, isPending, error } = useWriteContract();
   const { isLoading: isConfirming, isSuccess: isConfirmed } =
     useWaitForTransactionReceipt({ hash });
@@ -312,6 +313,13 @@ export function HomeTab() {
   const [processingPass, setProcessingPass] = useState<PassType | null>(null);
   const [hasShownSuccess, setHasShownSuccess] = useState(false);
   const [hasShownError, setHasShownError] = useState(false);
+  const [targetChainId, setTargetChainId] = useState<number | null>(null);
+  const [pendingTransaction, setPendingTransaction] = useState<{
+    chain: ChainKey;
+    usdcAddress: `0x${string}`;
+    amount: string;
+    displayPrice: string;
+  } | null>(null);
 
   // Handle transaction confirmation
   useEffect(() => {
@@ -330,6 +338,8 @@ export function HomeTab() {
       console.error("Transaction error:", error);
       alert(`❌ Payment failed: ${error.message}`);
       setProcessingPass(null);
+      setTargetChainId(null);
+      setPendingTransaction(null);
       setHasShownError(true);
     }
   }, [error, processingPass, hasShownError]);
@@ -341,6 +351,31 @@ export function HomeTab() {
       setHasShownError(false);
     }
   }, [hash]);
+
+  // Execute transaction after chain switch completes
+  useEffect(() => {
+    if (
+      pendingTransaction &&
+      targetChainId &&
+      chainId === targetChainId &&
+      !isPending &&
+      !hash &&
+      !isSwitchingChain
+    ) {
+      console.log("Chain switch confirmed, executing transaction:", pendingTransaction);
+      
+      // Execute USDC transfer now that we're on the correct chain
+      writeContract({
+        address: pendingTransaction.usdcAddress,
+        abi: ERC20_ABI,
+        functionName: "transfer",
+        args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(pendingTransaction.amount)],
+      });
+      
+      // Clear pending transaction
+      setPendingTransaction(null);
+    }
+  }, [chainId, targetChainId, pendingTransaction, isPending, hash, isSwitchingChain, writeContract]);
 
   const handleBuyClick = (passId: PassType) => {
     if (!isConnected) {
@@ -362,38 +397,75 @@ export function HomeTab() {
       // Get USDC contract address for selected chain
       const usdcAddress = USDC_ADDRESSES[chain];
       const amount = PASS_PRICES[selectedPass];
-      const targetChainId = SUPPORTED_CHAINS[chain];
+      const targetChain = SUPPORTED_CHAINS[chain];
+      setTargetChainId(targetChain);
+
+      const displayPrice = PASS_DISPLAY_PRICES[selectedPass];
 
       console.log("Initiating payment:", {
         pass: selectedPass,
         chain,
         usdcAddress,
         amount,
+        displayPrice,
         recipient: PAYMENT_RECIPIENT_ADDRESS,
-        targetChainId,
+        targetChainId: targetChain,
         currentChainId: chainId,
       });
 
-      // Switch chain if needed
-      if (chainId !== targetChainId) {
-        console.log(`Switching chain from ${chainId} to ${targetChainId}`);
-        await switchChain({ chainId: targetChainId });
-        // Wait a bit for chain switch to complete
-        await new Promise((resolve) => setTimeout(resolve, 1000));
-      }
+      // Switch chain if needed - useEffect will execute transaction after switch
+      if (chainId !== targetChain) {
+        console.log(`Switching chain from ${chainId} to ${targetChain}`);
+        try {
+          // Store transaction details to execute after chain switch
+          setPendingTransaction({
+            chain,
+            usdcAddress,
+            amount,
+            displayPrice,
+          });
+          
+          // Switch chain - useEffect will handle transaction execution
+          await switchChain({ chainId: targetChain });
+        } catch (switchError) {
+          console.error("Chain switch error:", switchError);
+          alert("Failed to switch chain. Please switch manually and try again.");
+          setProcessingPass(null);
+          setTargetChainId(null);
+          setPendingTransaction(null);
+          return;
+        }
+      } else {
+        // Already on correct chain - execute transaction immediately
+        console.log("Already on correct chain, executing transaction immediately");
+        
+        // Encode the function data for better wallet display
+        const encodedData = encodeFunctionData({
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
+        });
 
-      // Execute USDC transfer
-      writeContract({
-        address: usdcAddress,
-        abi: ERC20_ABI,
-        functionName: "transfer",
-        args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
-        chainId: targetChainId,
-      });
+        console.log("Executing USDC transfer:", {
+          to: usdcAddress,
+          data: encodedData,
+          amount: displayPrice,
+          chain: chain.toUpperCase(),
+        });
+
+        // Execute USDC transfer immediately
+        writeContract({
+          address: usdcAddress,
+          abi: ERC20_ABI,
+          functionName: "transfer",
+          args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
+        });
+      }
     } catch (err) {
       console.error("Payment error:", err);
       alert("Payment failed. Please try again.");
       setProcessingPass(null);
+      setTargetChainId(null);
     }
   };
 
