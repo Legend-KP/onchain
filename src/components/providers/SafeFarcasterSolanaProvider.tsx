@@ -1,23 +1,10 @@
 import React, { createContext, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
-
-// Safely import Farcaster SDK - handle import errors gracefully
-let sdk: any = null;
-try {
-  // eslint-disable-next-line @typescript-eslint/no-require-imports
-  const sdkModule = require('@farcaster/miniapp-sdk');
-  sdk = sdkModule?.sdk || null;
-} catch (error) {
-  // SDK not available - this is fine, Solana provider is optional
-  sdk = null;
-}
+import { sdk } from '@farcaster/miniapp-sdk';
 
 const FarcasterSolanaProvider = dynamic(
   () => import('@farcaster/mini-app-solana').then(mod => mod.FarcasterSolanaProvider),
-  { 
-    ssr: false,
-    loading: () => null, // Don't show loading state
-  }
+  { ssr: false }
 );
 
 type SafeFarcasterSolanaProviderProps = {
@@ -37,21 +24,11 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
     let cancelled = false;
     (async () => {
       try {
-        // Check if SDK is available before using it
-        if (!sdk || !sdk.wallet) {
-          if (!cancelled) {
-            setHasSolanaProvider(false);
-            setChecked(true);
-          }
-          return;
-        }
-        
         const provider = await sdk.wallet.getSolanaProvider();
         if (!cancelled) {
           setHasSolanaProvider(!!provider);
         }
-      } catch (error) {
-        // Silently handle errors - Solana provider is optional
+      } catch {
         if (!cancelled) {
           setHasSolanaProvider(false);
         }
@@ -87,14 +64,8 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
     };
   }, []);
 
-  // Always return children - don't block rendering if SDK isn't available
-  if (!isClient) {
-    return <>{children}</>;
-  }
-
-  if (!checked) {
-    // Return children immediately while checking - don't block rendering
-    return <>{children}</>;
+  if (!isClient || !checked) {
+    return null;
   }
 
   return (

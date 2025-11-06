@@ -16,8 +16,7 @@ import { type AccountAssociation } from '@farcaster/miniapp-core/src/manifest';
  * The base URL of the application.
  * Used for generating absolute URLs for assets and API endpoints.
  */
-export const APP_URL: string = process.env.NEXT_PUBLIC_URL || 
-  (typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000');
+export const APP_URL: string = process.env.NEXT_PUBLIC_URL!;
 
 /**
  * The name of the mini app as displayed to users.
@@ -134,40 +133,16 @@ export const APP_REQUIRED_CHAINS: string[] = [];
  */
 export const RETURN_URL: string | undefined = undefined;
 
-// --- Daimo Pay Configuration ---
+// --- Payment Configuration ---
 /**
- * Daimo Pay App ID for payment processing.
- * Use "pay-demo" for prototyping, or get a production ID from Daimo.
- */
-export const DAIMO_APP_ID: string = process.env.NEXT_PUBLIC_DAIMO_APP_ID || "pay-trenchy-FGhJgP9hwghGh9bLxVzawb";
-
-/**
- * Recipient address where payments will be sent.
- * This should be a wallet address you control on all supported networks.
- */
-export const DAIMO_RECIPIENT_ADDRESS: string = process.env.NEXT_PUBLIC_DAIMO_RECIPIENT_ADDRESS || "";
-
-/**
- * Refund address for failed or bounced payments.
- * Should be a wallet address you control on all supported networks.
- * Can be the same as RECIPIENT_ADDRESS.
- */
-export const DAIMO_REFUND_ADDRESS: string = process.env.NEXT_PUBLIC_DAIMO_REFUND_ADDRESS || process.env.NEXT_PUBLIC_DAIMO_RECIPIENT_ADDRESS || "";
-
-/**
- * Webhook secret token for verifying Daimo Pay webhook requests.
- * Get this from Daimo when setting up webhooks.
- */
-export const DAIMO_WEBHOOK_TOKEN: string = process.env.DAIMO_WEBHOOK_TOKEN || "";
-
-// --- Custom USDC Payment Configuration ---
-/**
- * Your wallet address (receives all payments)
+ * Recipient address where all USDC payments will be sent.
+ * This is the wallet address that receives all pass purchases.
  */
 export const PAYMENT_RECIPIENT_ADDRESS = "0xE51f63637c549244d0A8E11ac7E6C86a1E9E0670" as const;
 
 /**
- * USDC token addresses for each supported chain
+ * USDC token contract addresses on each supported chain.
+ * USDC uses 6 decimals on all chains.
  */
 export const USDC_ADDRESSES = {
   base: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`,
@@ -176,7 +151,7 @@ export const USDC_ADDRESSES = {
 } as const;
 
 /**
- * Chain IDs for supported networks
+ * Chain IDs for supported payment networks.
  */
 export const SUPPORTED_CHAINS = {
   base: 8453,
@@ -185,7 +160,8 @@ export const SUPPORTED_CHAINS = {
 } as const;
 
 /**
- * Pass prices (in USDC - 6 decimals)
+ * Pass prices in USDC (6 decimals).
+ * These are the exact amounts that will be transferred.
  */
 export const PASS_PRICES = {
   daily: "1000000", // 1 USDC (1 * 10^6)
@@ -194,7 +170,8 @@ export const PASS_PRICES = {
 } as const;
 
 /**
- * Pass display prices (for UI)
+ * Pass display prices for UI.
+ * These are the human-readable prices shown to users.
  */
 export const PASS_DISPLAY_PRICES = {
   daily: "1.00",
