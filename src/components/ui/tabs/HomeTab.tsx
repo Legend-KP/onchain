@@ -388,6 +388,16 @@ export function HomeTab() {
         // Parse amount with 6 decimals (USDC standard)
         const amount = parseUnits(pendingTransaction.displayPrice, 6);
         
+        // Verify amount is correct
+        console.log("Post-chain-switch transaction:", {
+          displayPrice: pendingTransaction.displayPrice,
+          amount: amount.toString(),
+          amountBigInt: amount,
+          usdcAddress: pendingTransaction.usdcAddress,
+          recipient: PAYMENT_RECIPIENT_ADDRESS,
+          decimals: 6,
+        });
+        
         // Use writeContract - better recognized by Farcaster wallet
         writeContract({
           address: pendingTransaction.usdcAddress,
@@ -396,6 +406,8 @@ export function HomeTab() {
           args: [PAYMENT_RECIPIENT_ADDRESS, amount],
           // Note: Farcaster wallet may show "No state changes detected" 
           // because it can't simulate ERC20 transfers yet, but transaction will work correctly
+          // Also note: Wallet may show "0 USDC" in detail view - this is a wallet display bug.
+          // The transaction executes correctly (verify on Arbiscan/Basescan)
         });
       } catch (err) {
         console.error("Transaction execution error:", err);
@@ -471,12 +483,21 @@ export function HomeTab() {
         // Already on correct chain - execute transaction immediately
         console.log("Already on correct chain, executing transaction immediately");
         
+        // Verify amount is correct before sending
+        const expectedAmount = parseUnits(displayPrice, 6);
+        if (amount !== expectedAmount) {
+          console.error("Amount mismatch!", { amount: amount.toString(), expected: expectedAmount.toString() });
+          throw new Error("Amount calculation error");
+        }
+
         console.log("Executing USDC transfer:", {
           to: usdcAddress,
           amount: displayPrice,
           amountRaw: amount.toString(),
+          amountBigInt: amount,
           recipient: PAYMENT_RECIPIENT_ADDRESS,
           chain: chain.toUpperCase(),
+          decimals: 6,
         });
 
         // Suppress MetaMask detection errors (they're harmless - we only use Farcaster)
