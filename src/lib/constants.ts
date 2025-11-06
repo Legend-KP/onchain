@@ -159,6 +159,48 @@ export const DAIMO_REFUND_ADDRESS: string = process.env.NEXT_PUBLIC_DAIMO_REFUND
  */
 export const DAIMO_WEBHOOK_TOKEN: string = process.env.DAIMO_WEBHOOK_TOKEN || "";
 
+// --- Custom USDC Payment Configuration ---
+/**
+ * Your wallet address (receives all payments)
+ */
+export const PAYMENT_RECIPIENT_ADDRESS = "0xE51f63637c549244d0A8E11ac7E6C86a1E9E0670" as const;
+
+/**
+ * USDC token addresses for each supported chain
+ */
+export const USDC_ADDRESSES = {
+  base: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" as `0x${string}`,
+  arbitrum: "0xaf88d065e77c8cC2239327C5EDb3A432268e5831" as `0x${string}`,
+  celo: "0xcebA9300f2b948710d2653dD7B07f33A8B32118C" as `0x${string}`,
+} as const;
+
+/**
+ * Chain IDs for supported networks
+ */
+export const SUPPORTED_CHAINS = {
+  base: 8453,
+  arbitrum: 42161,
+  celo: 42220,
+} as const;
+
+/**
+ * Pass prices (in USDC - 6 decimals)
+ */
+export const PASS_PRICES = {
+  daily: "1000000", // 1 USDC (1 * 10^6)
+  weekly: "3000000", // 3 USDC (3 * 10^6)
+  monthly: "9000000", // 9 USDC (9 * 10^6)
+} as const;
+
+/**
+ * Pass display prices (for UI)
+ */
+export const PASS_DISPLAY_PRICES = {
+  daily: "1.00",
+  weekly: "3.00",
+  monthly: "9.00",
+} as const;
+
 // PLEASE DO NOT UPDATE THIS
 export const SIGNED_KEY_REQUEST_VALIDATOR_EIP_712_DOMAIN = {
   name: 'Farcaster SignedKeyRequestValidator',
