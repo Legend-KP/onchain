@@ -37,7 +37,7 @@ export async function POST(req: NextRequest) {
         // Check if the transaction is a USDC transfer
         // We need to verify it's from one of our USDC contracts
         const chainKey = Object.entries(USDC_ADDRESSES).find(
-          ([_, address]) => {
+          ([_key, _address]) => {
             // For ERC20 transfers, we'd need to check the transaction logs
             // For now, we'll check if the chain matches
             return true; // Simplified - in production, parse transaction logs
