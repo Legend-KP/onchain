@@ -318,14 +318,6 @@ export function HomeTab() {
 
   const [selectedPass, setSelectedPass] = useState<PassType | null>(null);
   const [showChainModal, setShowChainModal] = useState(false);
-  const [showConfirmModal, setShowConfirmModal] = useState(false);
-  const [confirmTransaction, setConfirmTransaction] = useState<{
-    chain: ChainKey;
-    chainName: string;
-    usdcAddress: `0x${string}`;
-    amount: string;
-    displayPrice: string;
-  } | null>(null);
   const [processingPass, setProcessingPass] = useState<PassType | null>(null);
   const [hasShownSuccess, setHasShownSuccess] = useState(false);
   const [hasShownError, setHasShownError] = useState(false);
@@ -405,50 +397,27 @@ export function HomeTab() {
     setShowChainModal(true);
   };
 
-  const handleChainSelect = (chain: ChainKey) => {
+  const handleChainSelect = async (chain: ChainKey) => {
     if (!selectedPass || !address) return;
 
     setShowChainModal(false);
-    
-    // Get chain name
-    const chainNames: Record<ChainKey, string> = {
-      base: "Base",
-      arbitrum: "Arbitrum",
-      celo: "Celo",
-    };
-
-    // Store transaction details for confirmation modal
-    const usdcAddress = USDC_ADDRESSES[chain];
-    const amount = PASS_PRICES[selectedPass];
-    const displayPrice = PASS_DISPLAY_PRICES[selectedPass];
-
-    setConfirmTransaction({
-      chain,
-      chainName: chainNames[chain],
-      usdcAddress,
-      amount,
-      displayPrice,
-    });
-    setShowConfirmModal(true);
-  };
-
-  const handleConfirmTransaction = async () => {
-    if (!selectedPass || !confirmTransaction || !address) return;
-
-    setShowConfirmModal(false);
     setProcessingPass(selectedPass);
 
     try {
-      const { chain, usdcAddress, amount } = confirmTransaction;
+      // Get USDC contract address for selected chain
+      const usdcAddress = USDC_ADDRESSES[chain];
+      const amount = PASS_PRICES[selectedPass];
       const targetChain = SUPPORTED_CHAINS[chain];
       setTargetChainId(targetChain);
+
+      const displayPrice = PASS_DISPLAY_PRICES[selectedPass];
 
       console.log("Initiating payment:", {
         pass: selectedPass,
         chain,
         usdcAddress,
         amount,
-        displayPrice: confirmTransaction.displayPrice,
+        displayPrice,
         recipient: PAYMENT_RECIPIENT_ADDRESS,
         targetChainId: targetChain,
         currentChainId: chainId,
@@ -463,7 +432,7 @@ export function HomeTab() {
             chain,
             usdcAddress,
             amount,
-            displayPrice: confirmTransaction.displayPrice,
+            displayPrice,
           });
           
           // Switch chain - useEffect will handle transaction execution
@@ -474,7 +443,6 @@ export function HomeTab() {
           setProcessingPass(null);
           setTargetChainId(null);
           setPendingTransaction(null);
-          setConfirmTransaction(null);
           return;
         }
       } else {
@@ -483,13 +451,15 @@ export function HomeTab() {
         
         console.log("Executing USDC transfer:", {
           to: usdcAddress,
-          amount: confirmTransaction.displayPrice,
+          amount: displayPrice,
           amountRaw: amount,
           recipient: PAYMENT_RECIPIENT_ADDRESS,
           chain: chain.toUpperCase(),
         });
 
         // Use writeContract - better recognized by Farcaster wallet
+        // Note: Farcaster wallet may show "No state changes detected" 
+        // because it can't simulate ERC20 transfers yet, but transaction will work correctly
         writeContract({
           address: usdcAddress,
           abi: ERC20_ABI,
@@ -497,14 +467,11 @@ export function HomeTab() {
           args: [PAYMENT_RECIPIENT_ADDRESS, BigInt(amount)],
         });
       }
-      
-      setConfirmTransaction(null);
     } catch (err) {
       console.error("Payment error:", err);
       alert("Payment failed. Please try again.");
       setProcessingPass(null);
       setTargetChainId(null);
-      setConfirmTransaction(null);
     }
   };
 
@@ -578,116 +545,6 @@ export function HomeTab() {
           passType={selectedPass}
           price={PASS_DISPLAY_PRICES[selectedPass]}
         />
-      )}
-
-      {/* Transaction Confirmation Modal */}
-      {confirmTransaction && selectedPass && showConfirmModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white dark:bg-gray-800 rounded-xl shadow-2xl max-w-md w-full p-6">
-            {/* Header */}
-            <div className="flex justify-between items-center mb-6">
-              <h3 className="text-xl font-bold text-gray-900 dark:text-white">
-                Confirm Transaction
-              </h3>
-              <button
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  setConfirmTransaction(null);
-                  setProcessingPass(null);
-                }}
-                className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-              >
-                <svg
-                  className="w-6 h-6"
-                  fill="none"
-                  viewBox="0 0 24 24"
-                  stroke="currentColor"
-                >
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M6 18L18 6M6 6l12 12"
-                  />
-                </svg>
-              </button>
-            </div>
-
-            {/* Transaction Details */}
-            <div className="space-y-4 mb-6">
-              {/* Pass Info */}
-              <div className="p-4 bg-blue-50 dark:bg-blue-900/20 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Purchasing:
-                </p>
-                <p className="text-2xl font-bold text-blue-600 dark:text-blue-400">
-                  {selectedPass.toUpperCase()} PASS
-                </p>
-              </div>
-
-              {/* Amount */}
-              <div className="p-4 bg-green-50 dark:bg-green-900/20 rounded-lg border-2 border-green-200 dark:border-green-800">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Amount to Transfer:
-                </p>
-                <p className="text-3xl font-bold text-green-600 dark:text-green-400">
-                  ${confirmTransaction.displayPrice} USDC
-                </p>
-                <p className="text-xs text-gray-500 dark:text-gray-400 mt-1">
-                  ({confirmTransaction.amount} with 6 decimals)
-                </p>
-              </div>
-
-              {/* Network */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Network:
-                </p>
-                <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                  {confirmTransaction.chainName}
-                </p>
-              </div>
-
-              {/* Recipient */}
-              <div className="p-4 bg-gray-50 dark:bg-gray-900 rounded-lg">
-                <p className="text-sm text-gray-600 dark:text-gray-400 mb-1">
-                  Recipient Address:
-                </p>
-                <p className="text-xs font-mono text-gray-900 dark:text-white break-all">
-                  {PAYMENT_RECIPIENT_ADDRESS}
-                </p>
-              </div>
-
-              {/* Warning */}
-              <div className="p-4 bg-amber-50 dark:bg-amber-900/20 rounded-lg border border-amber-200 dark:border-amber-800">
-                <p className="text-xs text-amber-800 dark:text-amber-200">
-                  ⚠️ The wallet popup may show &quot;No state changes detected&quot; - this is normal. 
-                  The transaction will transfer ${confirmTransaction.displayPrice} USDC correctly.
-                </p>
-              </div>
-            </div>
-
-            {/* Action Buttons */}
-            <div className="flex gap-3">
-              <button
-                onClick={() => {
-                  setShowConfirmModal(false);
-                  setConfirmTransaction(null);
-                  setProcessingPass(null);
-                }}
-                className="flex-1 py-3 px-4 rounded-lg font-semibold text-gray-700 dark:text-gray-300 bg-gray-200 dark:bg-gray-700 hover:bg-gray-300 dark:hover:bg-gray-600 transition-colors"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={handleConfirmTransaction}
-                className="flex-1 py-3 px-4 rounded-lg font-semibold text-white bg-green-600 hover:bg-green-700 transition-colors shadow-md"
-              >
-                Confirm & Approve
-              </button>
-            </div>
-          </div>
-        </div>
       )}
     </div>
   );
