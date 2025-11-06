@@ -1,8 +1,16 @@
 import React, { createContext, useEffect, useState } from "react";
 import dynamic from "next/dynamic";
 
-// Import Farcaster SDK - errors are handled in useEffect
-import { sdk } from '@farcaster/miniapp-sdk';
+// Safely import Farcaster SDK - handle import errors gracefully
+let sdk: any = null;
+try {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const sdkModule = require('@farcaster/miniapp-sdk');
+  sdk = sdkModule?.sdk || null;
+} catch (error) {
+  // SDK not available - this is fine, Solana provider is optional
+  sdk = null;
+}
 
 const FarcasterSolanaProvider = dynamic(
   () => import('@farcaster/mini-app-solana').then(mod => mod.FarcasterSolanaProvider),
@@ -79,8 +87,14 @@ export function SafeFarcasterSolanaProvider({ endpoint, children }: SafeFarcaste
     };
   }, []);
 
-  if (!isClient || !checked) {
-    return null;
+  // Always return children - don't block rendering if SDK isn't available
+  if (!isClient) {
+    return <>{children}</>;
+  }
+
+  if (!checked) {
+    // Return children immediately while checking - don't block rendering
+    return <>{children}</>;
   }
 
   return (
