@@ -370,7 +370,18 @@ export function HomeTab() {
       !hash &&
       !isSwitchingChain
     ) {
-      console.log("Chain switch confirmed, executing transaction:", pendingTransaction);
+      const isCelo = pendingTransaction.chain === "celo";
+      console.log("Chain switch confirmed, executing transaction:", {
+        ...pendingTransaction,
+        isCelo,
+        chainId,
+        targetChainId,
+      });
+      
+      // Celo-specific: Add extra delay to ensure network is ready
+      if (isCelo) {
+        console.log("Celo transaction - adding stability delay");
+      }
       
       // Suppress MetaMask detection errors (they're harmless - we only use Farcaster)
       const originalError = console.error;
@@ -384,37 +395,61 @@ export function HomeTab() {
         originalError(...args);
       };
       
-      try {
-        // Parse amount with 6 decimals (USDC standard)
-        const amount = parseUnits(pendingTransaction.displayPrice, 6);
-        
-        // Verify amount is correct
-        console.log("Post-chain-switch transaction:", {
-          displayPrice: pendingTransaction.displayPrice,
-          amount: amount.toString(),
-          amountBigInt: amount,
-          usdcAddress: pendingTransaction.usdcAddress,
-          recipient: PAYMENT_RECIPIENT_ADDRESS,
-          decimals: 6,
-        });
-        
-        // Use writeContract - better recognized by Farcaster wallet
-        writeContract({
-          address: pendingTransaction.usdcAddress,
-          abi: ERC20_ABI,
-          functionName: "transfer",
-          args: [PAYMENT_RECIPIENT_ADDRESS, amount],
+      // Celo-specific: Add delay before executing transaction
+      const executeTransaction = async () => {
+        try {
+          // Parse amount with 6 decimals (USDC standard)
+          const amount = parseUnits(pendingTransaction.displayPrice, 6);
+          
+          // Celo-specific: Add stability delay
+          if (isCelo) {
+            await new Promise((resolve) => setTimeout(resolve, 1000)); // 1 second delay for Celo
+          }
+          
+          // Verify amount is correct
+          console.log("Post-chain-switch transaction:", {
+            displayPrice: pendingTransaction.displayPrice,
+            amount: amount.toString(),
+            amountBigInt: amount,
+            usdcAddress: pendingTransaction.usdcAddress,
+            recipient: PAYMENT_RECIPIENT_ADDRESS,
+            decimals: 6,
+            isCelo,
+          });
+          
+          // Celo-specific configuration for better reliability
+          const writeContractOptions: any = {
+            address: pendingTransaction.usdcAddress,
+            abi: ERC20_ABI,
+            functionName: "transfer",
+            args: [PAYMENT_RECIPIENT_ADDRESS, amount],
+          };
+
+          if (isCelo) {
+            console.log("Celo transaction (post-switch) - executing with stability delay");
+          }
+
+          // Use writeContract - better recognized by Farcaster wallet
+          writeContract(writeContractOptions);
           // Note: Farcaster wallet may show "No state changes detected" 
           // because it can't simulate ERC20 transfers yet, but transaction will work correctly
           // Also note: Wallet may show "0 USDC" in detail view - this is a wallet display bug.
           // The transaction executes correctly (verify on Arbiscan/Basescan)
-        });
-      } catch (err) {
-        console.error("Transaction execution error:", err);
-      } finally {
-        // Restore original console.error
-        console.error = originalError;
-      }
+        } catch (err) {
+          console.error("Transaction execution error:", err);
+          if (isCelo) {
+            console.error("Celo transaction failed - this may be due to:");
+            console.error("1. Network congestion - try again in a few moments");
+            console.error("2. Insufficient CELO for gas - ensure wallet has CELO tokens");
+            console.error("3. RPC timeout - the network may be slow, retry the transaction");
+          }
+        } finally {
+          // Restore original console.error
+          console.error = originalError;
+        }
+      };
+
+      executeTransaction();
       
       // Clear pending transaction
       setPendingTransaction(null);
@@ -459,7 +494,8 @@ export function HomeTab() {
 
       // Switch chain if needed - useEffect will execute transaction after switch
       if (chainId !== targetChain) {
-        console.log(`Switching chain from ${chainId} to ${targetChain}`);
+        const isCelo = chain === "celo";
+        console.log(`Switching chain from ${chainId} to ${targetChain}${isCelo ? " (Celo - allowing extra sync time)" : ""}`);
         try {
           // Store transaction details to execute after chain switch
           setPendingTransaction({
@@ -471,9 +507,18 @@ export function HomeTab() {
           
           // Switch chain - useEffect will handle transaction execution
           await switchChain({ chainId: targetChain });
+          
+          // Celo-specific: Wait longer for chain switch to fully complete
+          if (isCelo) {
+            console.log("Celo chain switch completed - waiting for network sync...");
+            await new Promise((resolve) => setTimeout(resolve, 2000)); // 2 second wait for Celo
+          }
         } catch (switchError) {
           console.error("Chain switch error:", switchError);
-          alert("Failed to switch chain. Please switch manually and try again.");
+          const errorMsg = isCelo 
+            ? "Failed to switch to Celo. This may be due to network congestion. Please try again in a few moments."
+            : "Failed to switch chain. Please switch manually and try again.";
+          alert(errorMsg);
           setProcessingPass(null);
           setTargetChainId(null);
           setPendingTransaction(null);
@@ -513,15 +558,25 @@ export function HomeTab() {
         };
         
         try {
-          // Use writeContract - better recognized by Farcaster wallet
-          // Note: Farcaster wallet may show "No state changes detected" 
-          // because it can't simulate ERC20 transfers yet, but transaction will work correctly
-          writeContract({
+          // Celo-specific configuration for better reliability
+          const isCelo = chain === "celo";
+          const writeContractOptions: any = {
             address: usdcAddress,
             abi: ERC20_ABI,
             functionName: "transfer",
             args: [PAYMENT_RECIPIENT_ADDRESS, amount], // amount is already BigInt from parseUnits
-          });
+          };
+
+          if (isCelo) {
+            console.log("Celo transaction (immediate) - executing with stability delay");
+            // Add small delay for Celo to ensure network is ready
+            await new Promise((resolve) => setTimeout(resolve, 500));
+          }
+
+          // Use writeContract - better recognized by Farcaster wallet
+          // Note: Farcaster wallet may show "No state changes detected" 
+          // because it can't simulate ERC20 transfers yet, but transaction will work correctly
+          writeContract(writeContractOptions);
         } catch (err) {
           console.error("Transaction execution error:", err);
         } finally {
