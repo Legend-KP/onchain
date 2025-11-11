@@ -4,7 +4,7 @@ import { useEffect } from "react";
 import { useMiniApp } from "@neynar/react";
 import { Header } from "~/components/ui/Header";
 import { Footer } from "~/components/ui/Footer";
-import { HomeTab, ActionsTab, ContextTab, WalletTab } from "~/components/ui/tabs";
+import { HomeTab, ActionsTab, ContextTab, WalletTab, MicroTab } from "~/components/ui/tabs";
 import { USE_WALLET } from "~/lib/constants";
 import { useNeynarUser } from "../hooks/useNeynarUser";
 
@@ -14,6 +14,7 @@ export enum Tab {
   Actions = "actions",
   Context = "context",
   Wallet = "wallet",
+  Micro = "micro",
 }
 
 export interface AppProps {
@@ -113,6 +114,7 @@ export default function App(
         {currentTab === Tab.Actions && <ActionsTab />}
         {currentTab === Tab.Context && <ContextTab />}
         {currentTab === Tab.Wallet && <WalletTab />}
+        {currentTab === Tab.Micro && <MicroTab />}
 
         {/* Footer with navigation */}
         <Footer activeTab={currentTab as Tab} setActiveTab={setActiveTab} showWallet={USE_WALLET} />
